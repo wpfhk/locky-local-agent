@@ -5,13 +5,15 @@ from __future__ import annotations
 import os
 import shlex
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm
+from rich.rule import Rule
 from rich.table import Table
 
 from locky_cli.fs_context import default_full_access_root
@@ -55,7 +57,6 @@ def _effective_root(state: SessionState) -> Path:
 
 def _run_develop(cmd: str, state: SessionState, console: Console) -> None:
     from graph import run_with_root
-    from rich.progress import Progress, SpinnerColumn, TextColumn
 
     ollama = OllamaClient()
     if not ollama.health_check():
@@ -68,20 +69,15 @@ def _run_develop(cmd: str, state: SessionState, console: Console) -> None:
     state.run_count += 1
     state.last_cmd = cmd
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console,
-        transient=False,
-    ) as progress:
-        task = progress.add_task("[cyan]파이프라인 실행 중…[/cyan]", total=None)
-        try:
-            result = run_with_root(cmd, root)
-        except Exception as exc:
-            progress.stop()
-            console.print(Panel(str(exc), title="오류", border_style="red"))
-            return
-        progress.update(task, description="[green]완료[/green]")
+    console.print(Rule("[dim]파이프라인 시작[/dim]"))
+    t0 = time.time()
+    try:
+        result = run_with_root(cmd, root)
+    except Exception as exc:
+        console.print(Panel(str(exc), title="오류", border_style="red"))
+        return
+    elapsed = time.time() - t0
+    console.print(Rule(f"[dim]완료 — {elapsed:.1f}s[/dim]"))
 
     tester_output = result.get("tester_output") or {}
     verdict = tester_output.get("verdict", "unknown")
@@ -91,6 +87,7 @@ def _run_develop(cmd: str, state: SessionState, console: Console) -> None:
     console.print(
         Panel(
             f"[bold]판정:[/bold] [{vc}]{verdict.upper()}[/{vc}]\n"
+            f"[bold]소요:[/bold] {elapsed:.1f}s\n"
             f"[bold]반복:[/bold] {retry_count}\n"
             f"[bold]보고:[/bold] {final_report}",
             title="실행 결과",
@@ -168,6 +165,11 @@ def run_interactive_session(
         line = line.strip()
         if not line:
             continue
+
+        # exit / quit 슬래시 없이도 종료
+        if line.lower() in ("exit", "quit"):
+            console.print("[dim]종료합니다.[/dim]")
+            break
 
         if line.startswith("/"):
             cmd, args = _parse_slash(line)

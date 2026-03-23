@@ -150,19 +150,42 @@ def break_tasks(state: LockyGlobalState) -> dict:
     file_tree = planner_output.get("file_tree", "")
     dependencies = planner_output.get("dependencies", "")
 
-    # 단순 요청은 짧은 타임아웃으로 빠르게 처리
     is_simple = _is_simple_request(cmd)
-    timeout = OLLAMA_TASK_TIMEOUT if is_simple else OLLAMA_TASK_TIMEOUT * 4
-    client = OllamaClient(model=OLLAMA_MODEL, timeout=timeout)
 
+    # 단순 요청은 Ollama 없이 즉시 태스크 생성
     if is_simple:
-        # 단순 요청: 파일트리/의존성 없이 최소 프롬프트 사용
-        prompt = _build_prompt(cmd, codebase_summary[:300], "", "")
-    else:
-        prompt = _build_prompt(cmd, codebase_summary, file_tree, dependencies)
+        filename = _derive_filename(cmd)
+        print(f"[TaskBreaker] 단순 요청 감지 — 태스크 직접 생성 ({filename})")
+        task_data = {
+            "tasks": [
+                {
+                    "id": "T001",
+                    "title": cmd[:60],
+                    "description": cmd,
+                    "files_to_modify": [],
+                    "files_to_create": [filename],
+                    "code_hints": f"{filename} 파일에 요구사항을 구현하세요.",
+                    "dependencies": [],
+                    "priority": "high",
+                    "estimated_complexity": "simple",
+                }
+            ],
+            "execution_order": [["T001"]],
+        }
+        task_list = task_data["tasks"]
+        updated_planner_output = {
+            **planner_output,
+            "task_list": task_list,
+            "execution_order": task_data["execution_order"],
+        }
+        return {"planner_output": updated_planner_output}
+
+    # 복잡한 요청은 Ollama로 태스크 분할
+    client = OllamaClient(model=OLLAMA_MODEL, timeout=OLLAMA_TASK_TIMEOUT * 4)
+    prompt = _build_prompt(cmd, codebase_summary, file_tree, dependencies)
     messages = [{"role": "user", "content": prompt}]
 
-    task_data: Optional[dict] = None
+    task_data = None
     last_response = ""
 
     for attempt in range(1, _MAX_RETRIES + 1):

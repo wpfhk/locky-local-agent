@@ -182,7 +182,7 @@ def analyze_context(state: LockyGlobalState) -> dict:
                 "key_modules": [],
             }
 
-    codebase_summary = summary_data.get("codebase_summary", response[:500])
+    codebase_summary = summary_data.get("codebase_summary", "")
     dependencies = summary_data.get("dependencies", "")
 
     # 기존 planner_output 유지하면서 업데이트

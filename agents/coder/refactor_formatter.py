@@ -117,67 +117,75 @@ def refactor_and_format(state: LockyGlobalState) -> dict:
     modified_files: List[str] = coder_output.get("modified_files", [])
     cmd = state.get("cmd", "")
 
-    client = OllamaClient(model=OLLAMA_MODEL)
+    _complex_keywords = ("리팩토링", "마이그레이션", "기존", "수정해", "변경해", "refactor", "migrate", "existing")
+    is_simple = len(cmd) <= 150 and not any(kw in cmd for kw in _complex_keywords)
+
     refactor_notes: List[str] = []
     successfully_refactored: List[str] = []
-
-    # Python 파일만 리팩토링 (바이너리나 설정 파일은 건너뜀)
     py_files = [f for f in modified_files if f.endswith(".py")]
 
-    for file_path in py_files:
-        print(f"[RefactorFormatter] 리팩토링 중: {file_path}")
-        try:
-            content = read_file(file_path)
-        except (FileNotFoundError, ValueError) as e:
-            print(f"[RefactorFormatter] 읽기 실패 {file_path}: {e}")
-            refactor_notes.append(f"{file_path}: 읽기 실패 — {e}")
-            continue
-
-        if not content.strip():
-            refactor_notes.append(f"{file_path}: 빈 파일 건너뜀")
-            continue
-
-        prompt = _build_refactor_prompt(file_path, content[:_MAX_FILE_SIZE])
-        messages = [{"role": "user", "content": prompt}]
-
-        try:
-            response = client.chat(messages)
-        except Exception as e:
-            print(f"[RefactorFormatter] Ollama 호출 실패 {file_path}: {e}")
-            refactor_notes.append(f"{file_path}: 리팩토링 실패 — {e}")
-            continue
-
-        refactored = _extract_refactored_code(response, file_path)
-
-        if refactored and refactored != content.strip():
+    if is_simple:
+        # 단순 요청: Ollama 없이 스킵, 커밋 메시지는 규칙 기반 생성
+        print("[RefactorFormatter] 단순 요청 — 리팩토링 스킵")
+        for file_path in py_files:
+            refactor_notes.append(f"{file_path}: 단순 요청 — 스킵")
+    else:
+        client = OllamaClient(model=OLLAMA_MODEL)
+        for file_path in py_files:
+            print(f"[RefactorFormatter] 리팩토링 중: {file_path}")
             try:
-                write_file(file_path, refactored)
-                successfully_refactored.append(file_path)
-                refactor_notes.append(f"{file_path}: 리팩토링 완료")
-                print(f"[RefactorFormatter]   완료: {file_path}")
+                content = read_file(file_path)
+            except (FileNotFoundError, ValueError) as e:
+                print(f"[RefactorFormatter] 읽기 실패 {file_path}: {e}")
+                refactor_notes.append(f"{file_path}: 읽기 실패 — {e}")
+                continue
+
+            if not content.strip():
+                refactor_notes.append(f"{file_path}: 빈 파일 건너뜀")
+                continue
+
+            prompt = _build_refactor_prompt(file_path, content[:_MAX_FILE_SIZE])
+            messages = [{"role": "user", "content": prompt}]
+
+            try:
+                response = client.chat(messages)
             except Exception as e:
-                print(f"[RefactorFormatter] 저장 실패 {file_path}: {e}")
-                refactor_notes.append(f"{file_path}: 저장 실패 — {e}")
-        else:
-            refactor_notes.append(f"{file_path}: 변경 없음 (이미 정리됨)")
+                print(f"[RefactorFormatter] Ollama 호출 실패 {file_path}: {e}")
+                refactor_notes.append(f"{file_path}: 리팩토링 실패 — {e}")
+                continue
 
-    # 커밋 메시지 초안 생성
+            refactored = _extract_refactored_code(response, file_path)
+
+            if refactored and refactored != content.strip():
+                try:
+                    write_file(file_path, refactored)
+                    successfully_refactored.append(file_path)
+                    refactor_notes.append(f"{file_path}: 리팩토링 완료")
+                    print(f"[RefactorFormatter]   완료: {file_path}")
+                except Exception as e:
+                    print(f"[RefactorFormatter] 저장 실패 {file_path}: {e}")
+                    refactor_notes.append(f"{file_path}: 저장 실패 — {e}")
+            else:
+                refactor_notes.append(f"{file_path}: 변경 없음 (이미 정리됨)")
+
+    # 커밋 메시지: 단순 요청은 규칙 기반, 복잡한 요청은 Ollama
     refactor_summary = "\n".join(refactor_notes) if refactor_notes else "리팩토링 없음"
-    commit_prompt = _build_commit_message_prompt(cmd, modified_files, refactor_summary)
-    commit_messages_list = [{"role": "user", "content": commit_prompt}]
-
-    try:
-        commit_response = client.chat(commit_messages_list)
-        # 코드 블록 제거
-        commit_message = commit_response.strip()
-        if commit_message.startswith("```"):
-            lines = commit_message.split("\n")
-            commit_message = "\n".join(
-                l for l in lines if not l.strip().startswith("```")
-            ).strip()
-    except Exception as e:
-        print(f"[RefactorFormatter] 커밋 메시지 생성 실패: {e}")
-        commit_message = f"feat: {cmd[:60]}" if cmd else "feat: implement changes"
+    if is_simple:
+        commit_message = f"feat: {cmd[:60]}"
+    else:
+        commit_prompt = _build_commit_message_prompt(cmd, modified_files, refactor_summary)
+        commit_messages_list = [{"role": "user", "content": commit_prompt}]
+        try:
+            commit_response = client.chat(commit_messages_list)
+            commit_message = commit_response.strip()
+            if commit_message.startswith("```"):
+                lines = commit_message.split("\n")
+                commit_message = "\n".join(
+                    l for l in lines if not l.strip().startswith("```")
+                ).strip()
+        except Exception as e:
+            print(f"[RefactorFormatter] 커밋 메시지 생성 실패: {e}")
+            commit_message = f"feat: {cmd[:60]}" if cmd else "feat: implement changes"
 
     # 커밋 메시지 최대 길이 보정
     if len(commit_message.split("\n")[0]) > 72:
