@@ -78,8 +78,8 @@ pip install -r requirements.txt
 ## 4. Locky 실행 — CLI
 
 ```bash
-# 기본 실행
-python cli.py develop "사용자 인증 모듈에 JWT 토큰 기반 로그인 기능을 추가해줘"
+# 기본 실행 — 첫 번째 인자만 요구사항으로 받습니다 (`develop`은 서브커맨드가 아님)
+python cli.py "사용자 인증 모듈에 JWT 토큰 기반 로그인 기능을 추가해줘"
 ```
 
 실행 화면 예시:
@@ -176,10 +176,22 @@ A: 더 작은 모델(`codellama:7b`) 사용 또는 GPU 가속 확인 (`ollama ps
 
 **Q: 특정 프로젝트 디렉토리에서 실행하고 싶어요**
 
-A: `MCP_FILESYSTEM_ROOT=/your/project/path python cli.py develop "..."`
+A: `MCP_FILESYSTEM_ROOT=/your/project/path python cli.py "..."`
 
 ---
 
 **Q: 테스트가 계속 실패해요**
 
 A: `MAX_RETRY_ITERATIONS=5` 로 재시도 횟수 늘리기. 또는 더 큰 모델 사용.
+
+---
+
+**Q: `python cli.py develop "..."` 실행 시 `Got unexpected extra argument` 가 나와요**
+
+A: `develop`은 Click 서브커맨드가 아니라, 요구사항만 넘기면 됩니다.
+
+```bash
+python cli.py "로그인 API에 JWT 인증 추가해줘"
+```
+
+`develop`을 넣으면 첫 토큰이 요구사항으로 잡히고, 따옴표 안 문장이 “남는 인자”로 처리되어 위 오류가 납니다.

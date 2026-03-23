@@ -19,7 +19,8 @@
 
 ---
 
-> `/develop "기능 추가해줘"` 한 마디면, Planner가 설계하고, Coder가 구현하고, Tester가 검증합니다.
+> 요구사항 한 마디(`python cli.py "기능 추가해줘"`)면, Planner가 설계하고, Coder가 구현하고, Tester가 검증합니다.
+> Web UI(Chainlit)에서는 `/develop [요구사항]` 형식을 사용합니다.
 > **인터넷 연결 없이, API 키 없이, 비용 없이.**
 
 ---
@@ -41,7 +42,7 @@
 ┌──────────────────────────────────────────────────────┐
 │                    🔒 Locky Pipeline                  │
 │                                                      │
-│  /develop "CMD"                                      │
+│  python cli.py "CMD"                                 │
 │       │                                              │
 │       ▼                                              │
 │  ┌──────────┐    ┌──────────┐    ┌──────────┐       │
@@ -84,17 +85,17 @@ git clone https://github.com/your-username/locky-agent.git
 cd locky-agent
 pip install -r requirements.txt
 
-# 3. 실행 — CLI
-python cli.py develop "로그인 API에 JWT 인증 추가해줘"
+# 3. 실행 — CLI (첫 인자가 요구사항 문자열 — `develop` 서브커맨드 없음)
+python cli.py "로그인 API에 JWT 인증 추가해줘"
 
 # 3-b. 실행 — Web UI (Chainlit)
-chainlit run app.py
+chainlit run ui/app.py
 ```
 
 ### 첫 번째 명령 실행
 
 ```bash
-$ python cli.py develop "사용자 프로필 CRUD API를 FastAPI로 만들어줘"
+$ python cli.py "사용자 프로필 CRUD API를 FastAPI로 만들어줘"
 
 🔒 Locky Starting...
 🧠 [Planner]   요구사항 분석 중...
@@ -151,10 +152,11 @@ Ollama에서 실행 가능한 모든 코딩 특화 모델을 지원합니다.
 | `codellama:7b` | 3.8 GB | 경량 환경 |
 | `deepseek-coder:6.7b` | 3.8 GB | 빠른 응답 |
 
-모델 변경:
+모델 변경 (`cli.py`에는 `--model` 플래그가 없음 — 환경변수 또는 `config.yaml`):
 
 ```bash
-python cli.py develop "기능 추가" --model qwen2.5-coder:14b
+export OLLAMA_MODEL=qwen2.5-coder:14b
+python cli.py "기능 추가"
 ```
 
 ---
