@@ -86,5 +86,5 @@ pytestdebug.log
 .claude/
 
 # 로컬 파이프라인 실행 중 생성되는 임시 결과물/아티팩트를 무시하려면 주석을 해제하세요.
-pipeline/
+.pipeline/
 docs
