@@ -1,0 +1,59 @@
+# Locky Agent · AI Harness Index
+
+> 프로젝트 전체 지도 및 표준 작업 절차(SOP). 코딩 정확도 극대화를 위한 진입점.
+
+## 1. 프로젝트 개요
+
+- **목적**: Ollama 기반 **100% 로컬** 자율 개발 파이프라인 — Planner → Coder → Tester(LangGraph 상태 머신), CLI(`cli.py`) 및 Chainlit Web UI(`ui/app.py`)
+- **스택**: Python 3.10+, LangGraph, LangChain Core, Ollama(로컬 LLM), Chainlit, Click + Rich, GitPython / MCP(파일시스템·Git 등 도구 연동)
+- **주요 진입점**
+  - CLI: `python cli.py "<요구사항 문자열>"` (첫 인자가 요구사항 — `develop` 서브커맨드 없음)
+  - Web UI: `chainlit run ui/app.py` — 채팅에서 `/develop [요구사항]` 형식
+- **에이전트 구조**: `agents/planner`(Context Analyzer, Task Breaker), `agents/coder`(Core Developer, Refactor Formatter), `agents/tester`(QA Validator, Security Auditor) — 프롬프트는 `agents/prompts/` 참고
+
+## 2. 문서 인덱스 (하네스 구성)
+
+| 문서 | 용도 | 핵심 원칙 |
+|:---|:---|:---|
+| `@docs/current-task.md` | 작업 계획 및 상태 | **선 계획 후 코딩.** 모든 진행 상황을 실시간 기록 |
+| `@docs/ARCHITECTURE.md` | 아키텍처 및 데이터 흐름 | `graph.py`, `states/`, `agents/`, `tools/`, `ui/` 역할 및 LangGraph 흐름 준수 |
+| `@docs/QUALITY.md` | 품질 가이드라인 | 린트·에러 핸들링·테스트 기준 엄수 (`README.md`, `TUTORIAL.md`와 충돌 시 본 문서와 협의 후 반영) |
+
+> 작업·기획 문서는 **저장소 루트의 `docs/`** 에 둔다. 위 표준 3파일(`current-task.md`, `ARCHITECTURE.md`, `QUALITY.md`)이 아직 없으면 **`docs/`에만** 추가·유지한다(기존 요구·개발 계획 문서와 동일 디렉터리).
+
+## 3. 작업 프로세스 (AI 필수 준수 사항)
+
+### [단계 1] 계획 수립 (Planning First)
+
+- 새로운 기능 구현이나 수정 요청을 받으면 코드를 먼저 작성하지 않는다.
+- 반드시 `@docs/current-task.md`를 업데이트하여 **세부 구현 단계(Step-by-step Checklist)**를 먼저 제안한다.
+- 사용자가 계획을 **승인(Confirm)**한 후에만 실제 구현 단계로 넘어간다.
+
+### [단계 2] 순차적 구현 (Sequential Implementation)
+
+- 한 번에 **하나의 단계(Step)**만 수행한다. 여러 단계를 동시에 수정하여 복잡도를 높이지 않는다.
+- 한 단계가 완료될 때마다 `@docs/current-task.md`의 해당 항목에 체크(`[v]`) 표시를 하여 진행 상태를 동기화한다.
+
+### [단계 3] 자동 검증 (Verify)
+
+코드 수정 후에는 반드시 프로젝트에 정의된 검증을 실행한다.
+
+- **Python 백엔드·에이전트**: `pytest` 또는 `python -m pytest` (테스트가 존재하는 경우). `pytest.ini` / `pyproject.toml` 등이 있으면 그 설정을 따른다.
+- **린트·포맷**: `pre-commit run --all-files` 또는 `docs/QUALITY.md` / `README.md`에 명시된 명령(예: ruff, black 도입 시)을 우선한다.
+- **프론트엔드**: 본 저장소는 React/Vite 등 별도 npm 워크스페이스가 없다. 향후 추가 시 해당 패키지의 `npm run lint`, `npm test`를 적용한다.
+
+검증이 실패하면 즉시 수정하고 통과할 때까지 반복한다.
+
+## 4. 보고 및 요약 형식 (Structured Reporting)
+
+모든 작업(또는 세부 단계 완료) 후에는 반드시 아래 포맷으로 요약 보고한다:
+
+```markdown
+### ✅ 작업 완료 보고
+- **수정된 파일**: 
+  - `파일명1`
+  - `파일명2`
+- **수정 이유**: (변경 사항의 핵심 목적)
+- **검증 결과**: (실행한 명령어 및 통과 여부 — 예: pytest 완료, pre-commit 통과)
+- **남은 리스크**: (사이드 이펙트 우려 사항이나 다음 단계 주의점)
+```
