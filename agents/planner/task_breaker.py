@@ -7,11 +7,60 @@ import re
 import time
 from typing import List, Optional
 
-from config import OLLAMA_MODEL
+from config import OLLAMA_MODEL, OLLAMA_TASK_TIMEOUT
 from states.state import LockyGlobalState
 from tools.ollama_client import OllamaClient
 
 _MAX_RETRIES = 3
+
+# 간단한 생성 요청으로 간주하는 최대 cmd 길이
+_SIMPLE_CMD_THRESHOLD = 150
+
+# 한글→영어 명사 매핑 (파일명 생성용)
+_NOUN_MAP = {
+    "덧셈": "addition", "뺄셈": "subtraction", "곱셈": "multiplication",
+    "나눗셈": "division", "계산기": "calculator", "계산": "calculator",
+    "정렬": "sorter", "검색": "search", "파서": "parser",
+    "크롤러": "crawler", "스크래퍼": "scraper", "게임": "game",
+    "채팅": "chat", "서버": "server", "클라이언트": "client",
+    "변환": "converter", "분석": "analyzer", "생성": "generator",
+    "다운로드": "downloader", "업로드": "uploader", "파일": "file_tool",
+    "텍스트": "text_tool", "숫자": "number_tool", "문자열": "string_tool",
+}
+
+
+def _derive_filename(cmd: str) -> str:
+    """cmd 문자열에서 적절한 파일명을 추출합니다."""
+    lang = "py"
+    if any(kw in cmd.lower() for kw in ("javascript", "자바스크립트", " js ")):
+        lang = "js"
+    elif any(kw in cmd.lower() for kw in ("typescript", "타입스크립트")):
+        lang = "ts"
+
+    for korean, english in _NOUN_MAP.items():
+        if korean in cmd:
+            return f"{english}.{lang}"
+
+    # 영어 단어 추출 시도
+    english_words = re.findall(r"[a-zA-Z]{4,}", cmd)
+    skip = {
+        "with", "that", "this", "from", "have", "python", "java",
+        "make", "create", "write", "simple", "basic", "using", "given",
+        "your", "just", "only", "also", "into", "some", "very",
+    }
+    for word in english_words:
+        if word.lower() not in skip:
+            return f"{word.lower()}.{lang}"
+
+    return f"solution.{lang}"
+
+
+def _is_simple_request(cmd: str) -> bool:
+    """단순 파일 생성 요청인지 판단합니다."""
+    if len(cmd) > _SIMPLE_CMD_THRESHOLD:
+        return False
+    complex_keywords = ("리팩토링", "마이그레이션", "기존", "수정해", "변경해", "refactor", "migrate", "existing")
+    return not any(kw in cmd for kw in complex_keywords)
 
 
 def _extract_json(text: str) -> Optional[dict]:
@@ -101,8 +150,16 @@ def break_tasks(state: LockyGlobalState) -> dict:
     file_tree = planner_output.get("file_tree", "")
     dependencies = planner_output.get("dependencies", "")
 
-    client = OllamaClient(model=OLLAMA_MODEL)
-    prompt = _build_prompt(cmd, codebase_summary, file_tree, dependencies)
+    # 단순 요청은 짧은 타임아웃으로 빠르게 처리
+    is_simple = _is_simple_request(cmd)
+    timeout = OLLAMA_TASK_TIMEOUT if is_simple else OLLAMA_TASK_TIMEOUT * 4
+    client = OllamaClient(model=OLLAMA_MODEL, timeout=timeout)
+
+    if is_simple:
+        # 단순 요청: 파일트리/의존성 없이 최소 프롬프트 사용
+        prompt = _build_prompt(cmd, codebase_summary[:300], "", "")
+    else:
+        prompt = _build_prompt(cmd, codebase_summary, file_tree, dependencies)
     messages = [{"role": "user", "content": prompt}]
 
     task_data: Optional[dict] = None
@@ -135,6 +192,7 @@ def break_tasks(state: LockyGlobalState) -> dict:
     # 파싱에 완전히 실패한 경우 기본 태스크 생성
     if not task_data or "tasks" not in task_data:
         print(f"[TaskBreaker] JSON 파싱 {_MAX_RETRIES}회 실패. 기본 태스크로 대체합니다.")
+        fallback_filename = _derive_filename(cmd)
         task_data = {
             "tasks": [
                 {
@@ -142,11 +200,11 @@ def break_tasks(state: LockyGlobalState) -> dict:
                     "title": "요구사항 구현",
                     "description": cmd,
                     "files_to_modify": [],
-                    "files_to_create": [],
-                    "code_hints": "",
+                    "files_to_create": [fallback_filename],
+                    "code_hints": f"파일 {fallback_filename}에 요구사항을 구현하세요.",
                     "dependencies": [],
                     "priority": "high",
-                    "estimated_complexity": "moderate",
+                    "estimated_complexity": "simple" if is_simple else "moderate",
                 }
             ],
             "execution_order": [["T001"]],

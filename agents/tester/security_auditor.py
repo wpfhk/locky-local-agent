@@ -124,8 +124,20 @@ def audit_security(state: LockyGlobalState) -> dict:
     coder_output = state.get("coder_output") or {}
     modified_files: List[str] = coder_output.get("modified_files", [])
 
+    # 수정된 파일이 없으면 스캔 생략
+    if not modified_files:
+        print("[SecurityAuditor] 수정된 파일 없음 — 보안 스캔 생략")
+        existing_tester = state.get("tester_output") or {}
+        return {
+            "tester_output": {
+                **existing_tester,
+                "security_issues": [],
+                "security_summary": {"critical": 0, "high": 0, "medium": 0, "low": 0, "scan_status": "skipped"},
+            }
+        }
+
     # 1. 패턴 기반 정적 스캔
-    print("[SecurityAuditor] 위험 패턴 스캔 중...")
+    print(f"[SecurityAuditor] 위험 패턴 스캔 중 ({len(modified_files)}개 파일)...")
     pattern_issues = _scan_patterns(modified_files)
     print(f"[SecurityAuditor] 패턴 스캔 결과: {len(pattern_issues)}개 잠재 이슈")
 

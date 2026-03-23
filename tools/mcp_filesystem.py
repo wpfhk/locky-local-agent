@@ -1,14 +1,13 @@
-import os
 import re
 from pathlib import Path
 from typing import List
 
-from config import MCP_FILESYSTEM_ROOT
+from locky_cli.fs_context import get_filesystem_root
 
 
 def _safe_path(path: str) -> Path:
     """
-    경로 순회 공격을 방지하여 MCP_FILESYSTEM_ROOT 내의 안전한 절대 경로를 반환합니다.
+    경로 순회 공격을 방지하여 MCP 파일시스템 루트 내의 안전한 절대 경로를 반환합니다.
 
     Args:
         path: 상대 또는 절대 경로 문자열
@@ -19,7 +18,7 @@ def _safe_path(path: str) -> Path:
     Raises:
         ValueError: 경로가 루트 밖을 벗어날 경우
     """
-    root = Path(MCP_FILESYSTEM_ROOT).resolve()
+    root = get_filesystem_root()
     target = (root / path).resolve()
     if not str(target).startswith(str(root)):
         raise ValueError(
@@ -133,7 +132,7 @@ def search_in_files(pattern: str, root: str = ".") -> List[dict]:
             continue
         for line_number, line in enumerate(text.splitlines(), start=1):
             if regex.search(line):
-                rel_path = str(filepath.relative_to(Path(MCP_FILESYSTEM_ROOT).resolve()))
+                rel_path = str(filepath.relative_to(get_filesystem_root()))
                 results.append(
                     {
                         "file": rel_path,

@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 from typing import List
 
-from config import OLLAMA_MODEL, MCP_FILESYSTEM_ROOT
+from config import OLLAMA_MODEL
+from locky_cli.fs_context import get_filesystem_root
 from states.state import LockyGlobalState
 from tools.mcp_filesystem import read_file, write_file
 from tools.ollama_client import OllamaClient
@@ -113,6 +114,20 @@ def validate_quality(state: LockyGlobalState) -> dict:
     coder_output = state.get("coder_output") or {}
     modified_files: List[str] = coder_output.get("modified_files", [])
 
+    # 수정된 파일이 없으면 스킵
+    if not modified_files:
+        print("[QAValidator] 수정된 파일 없음 — 테스트 생성 생략")
+        existing_tester = state.get("tester_output") or {}
+        return {
+            "tester_output": {
+                **existing_tester,
+                "test_results": [{"test": "unit_tests", "status": "pass", "passed": 0, "failed": 0, "error": 0, "failed_details": []}],
+                "tests_written": 0,
+                "pytest_summary": {"passed": 0, "failed": 0, "error": 0},
+                "generated_test_files": [],
+            }
+        }
+
     # Python 파일만 테스트 생성 대상
     py_files = [f for f in modified_files if f.endswith(".py") and not f.startswith("test")]
 
@@ -120,7 +135,7 @@ def validate_quality(state: LockyGlobalState) -> dict:
     generated_tests: List[str] = []
 
     # tests 디렉토리 생성
-    tests_path = Path(MCP_FILESYSTEM_ROOT) / _TESTS_DIR
+    tests_path = get_filesystem_root() / _TESTS_DIR
     tests_path.mkdir(parents=True, exist_ok=True)
 
     # tests/__init__.py 생성
@@ -177,7 +192,7 @@ def validate_quality(state: LockyGlobalState) -> dict:
                 capture_output=True,
                 text=True,
                 timeout=120,
-                cwd=MCP_FILESYSTEM_ROOT,
+                cwd=str(get_filesystem_root()),
             )
             combined_output = proc.stdout + proc.stderr
             pytest_result = _parse_pytest_output(combined_output)

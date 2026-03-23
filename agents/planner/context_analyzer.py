@@ -67,6 +67,14 @@ def _read_files_safe(root: str, filenames: List[str]) -> dict:
     return contents
 
 
+def _is_simple_request(cmd: str) -> bool:
+    """단순 파일 생성 요청인지 판단합니다 (Ollama 분석 불필요)."""
+    if len(cmd) > 150:
+        return False
+    complex_keywords = ("리팩토링", "마이그레이션", "기존", "수정해", "변경해", "refactor", "migrate", "existing")
+    return not any(kw in cmd for kw in complex_keywords)
+
+
 def analyze_context(state: LockyGlobalState) -> dict:
     """
     프로젝트 코드베이스를 분석하고 요약합니다.
@@ -77,18 +85,20 @@ def analyze_context(state: LockyGlobalState) -> dict:
     Returns:
         planner_output에 codebase_summary, file_tree, dependencies를 추가한 dict
     """
-    from config import MCP_FILESYSTEM_ROOT
+    from locky_cli.fs_context import get_filesystem_root
+
+    root_str = str(get_filesystem_root())
 
     # 1. 파일 트리 파악
     file_tree = get_file_tree(".", max_depth=4)
 
     # 2. 주요 파일 읽기
     key_filenames = _collect_key_files(file_tree)
-    file_contents = _read_files_safe(MCP_FILESYSTEM_ROOT, key_filenames)
+    file_contents = _read_files_safe(root_str, key_filenames)
 
     # 추가로 *.py 파일 중 최상위 레벨 파일 읽기
     from pathlib import Path as _Path
-    root_path = _Path(MCP_FILESYSTEM_ROOT)
+    root_path = _Path(root_str)
     py_count = 0
     for py_file in sorted(root_path.rglob("*.py")):
         if py_count >= 8:
@@ -106,14 +116,32 @@ def analyze_context(state: LockyGlobalState) -> dict:
             except OSError:
                 pass
 
-    # 3. Ollama에 코드베이스 요약 요청
-    client = OllamaClient(model=OLLAMA_MODEL)
+    cmd = state.get("cmd", "")
 
-    files_text = "\n\n".join(
-        f"=== {path} ===\n{content}" for path, content in file_contents.items()
-    )
-
-    prompt = f"""당신은 코드베이스 분석 전문가입니다.
+    # 3. 코드베이스 요약 생성
+    # 단순 요청은 Ollama 분석 없이 파일 트리 기반으로 빠르게 처리
+    if _is_simple_request(cmd):
+        print("[ContextAnalyzer] 단순 요청 감지 — 빠른 분석 모드")
+        # requirements.txt 또는 pyproject.toml에서 의존성 추출
+        deps = ""
+        for path, content in file_contents.items():
+            if "requirements" in path or "pyproject" in path:
+                deps = content[:500]
+                break
+        summary_data = {
+            "codebase_summary": f"프로젝트 루트: {root_str}. 파일 수: {len(file_contents)}개.",
+            "dependencies": deps,
+            "tech_stack": "Python",
+            "conventions": "snake_case, pytest",
+            "entry_points": [k for k in file_contents if k.endswith("main.py") or k == "cli.py"],
+            "key_modules": list(file_contents.keys())[:5],
+        }
+    else:
+        client = OllamaClient(model=OLLAMA_MODEL)
+        files_text = "\n\n".join(
+            f"=== {path} ===\n{content}" for path, content in file_contents.items()
+        )
+        prompt = f"""당신은 코드베이스 분석 전문가입니다.
 아래 프로젝트 파일 트리와 주요 파일 내용을 분석하여 다음 항목을 JSON으로 출력하세요.
 
 ## 파일 트리
@@ -132,31 +160,27 @@ def analyze_context(state: LockyGlobalState) -> dict:
   "key_modules": ["핵심 모듈/디렉토리 목록"]
 }}
 """
+        messages = [{"role": "user", "content": prompt}]
+        response = client.chat(messages)
 
-    messages = [{"role": "user", "content": prompt}]
-    response = client.chat(messages)
-
-    # JSON 파싱 시도
-    summary_data = {}
-    try:
-        # 코드 블록 제거
-        clean = response.strip()
-        if "```" in clean:
-            import re
-            match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", clean)
-            if match:
-                clean = match.group(1)
-        summary_data = json.loads(clean)
-    except (json.JSONDecodeError, AttributeError):
-        # 파싱 실패 시 원본 텍스트를 요약으로 사용
-        summary_data = {
-            "codebase_summary": response[:1000],
-            "dependencies": "",
-            "tech_stack": "Python",
-            "conventions": "snake_case",
-            "entry_points": [],
-            "key_modules": [],
-        }
+        summary_data = {}
+        try:
+            clean = response.strip()
+            if "```" in clean:
+                import re
+                match = re.search(r"```(?:json)?\s*([\s\S]+?)\s*```", clean)
+                if match:
+                    clean = match.group(1)
+            summary_data = json.loads(clean)
+        except (json.JSONDecodeError, AttributeError):
+            summary_data = {
+                "codebase_summary": response[:1000],
+                "dependencies": "",
+                "tech_stack": "Python",
+                "conventions": "snake_case",
+                "entry_points": [],
+                "key_modules": [],
+            }
 
     codebase_summary = summary_data.get("codebase_summary", response[:500])
     dependencies = summary_data.get("dependencies", "")

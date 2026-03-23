@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import time
+
 from states.state import LockyGlobalState
 from agents.coder.core_developer import develop_code
 from agents.coder.refactor_formatter import refactor_and_format
@@ -20,10 +22,16 @@ def coder_lead(state: LockyGlobalState) -> dict:
     Returns:
         통합된 coder_output과 current_stage("testing")을 포함한 dict
     """
+    retry = state.get("retry_count", 0)
+    stage_start = time.time()
+    iteration_label = f" (재시도 {retry}회차)" if retry > 0 else ""
+    print(f"\n[Coder] ─── Stage 2: Coding{iteration_label} ──────────────────")
     print("[Coder] 코드 구현 시작...")
 
     # Step 1: 핵심 코드 구현
+    t0 = time.time()
     dev_result = develop_code(state)
+    print(f"[Coder] 코드 생성 완료 ({time.time() - t0:.1f}s)")
 
     # 중간 상태 병합
     intermediate_state: LockyGlobalState = {
@@ -33,7 +41,9 @@ def coder_lead(state: LockyGlobalState) -> dict:
 
     # Step 2: 리팩토링 및 포매팅
     print("[Coder] 리팩토링 및 포매팅 중...")
+    t0 = time.time()
     refactor_result = refactor_and_format(intermediate_state)
+    print(f"[Coder] 포매팅 완료 ({time.time() - t0:.1f}s)")
 
     # 최종 coder_output 통합
     final_coder_output = {
@@ -44,12 +54,16 @@ def coder_lead(state: LockyGlobalState) -> dict:
     modified_files = final_coder_output.get("modified_files", [])
     file_count = len(modified_files)
 
-    print(f"[Coder] 구현 완료: {file_count}개 파일 수정")
+    elapsed = time.time() - stage_start
+    print(f"[Coder] 구현 완료: {file_count}개 파일 수정 — 총 {elapsed:.1f}s")
+    if modified_files:
+        for f in modified_files:
+            print(f"[Coder]   → {f}")
 
     return {
         "coder_output": final_coder_output,
         "current_stage": "testing",
         "messages": [
-            f"[Coder] 코드 구현 및 리팩토링 완료 — {file_count}개 파일 수정"
+            f"[Coder] 코드 구현 완료 — {file_count}개 파일 수정 ({elapsed:.1f}s)"
         ],
     }

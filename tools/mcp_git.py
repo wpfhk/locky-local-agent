@@ -1,16 +1,17 @@
 from typing import List, Optional
 from git import Repo, InvalidGitRepositoryError
 
-from config import MCP_FILESYSTEM_ROOT
+from locky_cli.fs_context import get_filesystem_root
 
 
 def _get_repo() -> Repo:
-    """MCP_FILESYSTEM_ROOT 기준 Git 저장소 인스턴스를 반환합니다."""
+    """현재 MCP 파일시스템 루트 기준 Git 저장소 인스턴스를 반환합니다."""
+    root = str(get_filesystem_root())
     try:
-        return Repo(MCP_FILESYSTEM_ROOT, search_parent_directories=True)
+        return Repo(root, search_parent_directories=True)
     except InvalidGitRepositoryError:
         raise RuntimeError(
-            f"'{MCP_FILESYSTEM_ROOT}'에서 유효한 Git 저장소를 찾을 수 없습니다."
+            f"'{root}'에서 유효한 Git 저장소를 찾을 수 없습니다."
         )
 
 

@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+from typing import Optional
+
 from langgraph.graph import END, START, StateGraph
 
 from agents.coder.lead import coder_lead
@@ -87,3 +90,20 @@ def run(cmd: str) -> dict:
     compiled = build_graph()
     result = compiled.invoke(initial_state)
     return result
+
+
+def run_with_root(cmd: str, root: Optional[Path | str] = None) -> dict:
+    """
+    지정한 MCP 파일시스템 루트에서 파이프라인을 실행합니다.
+    executor 스레드 등에서도 동일 루트가 적용되도록 컨텍스트로 고정합니다.
+
+    Args:
+        cmd: 사용자 요구사항
+        root: None이면 현재 환경/기본 루트 사용
+    """
+    from locky_cli.fs_context import filesystem_root_context
+
+    if root is None:
+        return run(cmd)
+    with filesystem_root_context(Path(root)):
+        return run(cmd)

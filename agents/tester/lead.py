@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from typing import List
 
 from states.state import LockyGlobalState, TesterState
@@ -65,10 +66,14 @@ def tester_lead(state: LockyGlobalState) -> dict:
     Returns:
         tester_output과 current_stage를 포함한 dict
     """
+    stage_start = time.time()
+    print("\n[Tester] ─── Stage 3: Testing ───────────────────────")
     print("[Tester] 품질 검증 시작...")
 
     # Step 1: QA 검증 (단위 테스트 생성 및 실행)
+    t0 = time.time()
     qa_result = validate_quality(state)
+    print(f"[Tester] QA 검증 완료 ({time.time() - t0:.1f}s)")
 
     # 중간 상태 병합
     intermediate_state: LockyGlobalState = {
@@ -78,7 +83,9 @@ def tester_lead(state: LockyGlobalState) -> dict:
 
     # Step 2: 보안 감사
     print("[Tester] 보안 감사 중...")
+    t0 = time.time()
     security_result = audit_security(intermediate_state)
+    print(f"[Tester] 보안 감사 완료 ({time.time() - t0:.1f}s)")
 
     # 최종 tester_output 통합
     final_tester_output = {
@@ -120,7 +127,9 @@ def tester_lead(state: LockyGlobalState) -> dict:
         "feedback": feedback,
     })
 
-    print(f"[Tester] 검증 완료: {verdict}")
+    elapsed = time.time() - stage_start
+    verdict_icon = "✓" if verdict == "pass" else "✗"
+    print(f"[Tester] 검증 완료: {verdict_icon} {verdict.upper()} — 총 {elapsed:.1f}s")
 
     return {
         "tester_output": final_tester_output,
@@ -135,6 +144,6 @@ def tester_lead(state: LockyGlobalState) -> dict:
         "messages": [
             f"[Tester] 검증 완료: {verdict.upper()} "
             f"(테스트 통과={total_passed}, 실패={total_failed}, "
-            f"보안이슈={len(security_issues)}개)"
+            f"보안이슈={len(security_issues)}개, {elapsed:.1f}s)"
         ],
     }

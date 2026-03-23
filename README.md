@@ -19,7 +19,7 @@
 
 ---
 
-> 요구사항 한 마디(`python cli.py "기능 추가해줘"`)면, Planner가 설계하고, Coder가 구현하고, Tester가 검증합니다.
+> 요구사항 한 마디(`locky run "기능 추가해줘"` 또는 `locky` 세션에서 입력)면, Planner가 설계하고, Coder가 구현하고, Tester가 검증합니다.
 > Web UI(Chainlit)에서는 `/develop [요구사항]` 형식을 사용합니다.
 > **인터넷 연결 없이, API 키 없이, 비용 없이.**
 
@@ -42,7 +42,7 @@
 ┌──────────────────────────────────────────────────────┐
 │                    🔒 Locky Pipeline                  │
 │                                                      │
-│  python cli.py "CMD"                                 │
+│  locky run "CMD"   (또는 locky → 인터랙티브 세션)                                 │
 │       │                                              │
 │       ▼                                              │
 │  ┌──────────┐    ┌──────────┐    ┌──────────┐       │
@@ -80,22 +80,32 @@
 brew install ollama && ollama serve
 ollama pull qwen2.5-coder:7b
 
-# 2. Locky 설치
+# 2. Locky 설치 (권장: 편집 가능 설치 + 전역 명령 locky)
 git clone https://github.com/your-username/locky-agent.git
 cd locky-agent
-pip install -r requirements.txt
+./scripts/install.sh
+# 가상환경 활성화 후 PATH에 .venv/bin 이 잡히면 locky 사용 가능
+source .venv/bin/activate
+locky --help
 
-# 3. 실행 — CLI (첫 인자가 요구사항 문자열 — `develop` 서브커맨드 없음)
-python cli.py "로그인 API에 JWT 인증 추가해줘"
+# 또는: pip install -r requirements.txt 후
+pip install -e .
 
-# 3-b. 실행 — Web UI (Chainlit)
-chainlit run ui/app.py
+# 3. 실행 — CLI
+locky                                          # 인터랙티브 세션 (Claude Code 스타일 REPL)
+locky run "로그인 API에 JWT 인증 추가해줘"      # 원샷 파이프라인
+locky run --full "..."                         # 로컬 전체 디스크 권한 (확인 프롬프트)
+python cli.py "레거시 호환 — locky run 과 동일"
+
+# 4. 실행 — Web 대시보드 (Chainlit)
+locky dashboard
+# 또는: locky web
 ```
 
 ### 첫 번째 명령 실행
 
 ```bash
-$ python cli.py "사용자 프로필 CRUD API를 FastAPI로 만들어줘"
+$ locky run "사용자 프로필 CRUD API를 FastAPI로 만들어줘"
 
 🔒 Locky Starting...
 🧠 [Planner]   요구사항 분석 중...
@@ -137,7 +147,7 @@ Tester FAIL → Coder (retry 1) → Tester FAIL → Coder (retry 2) → Tester P
 | 파일시스템 | MCP Filesystem | 코드 읽기/쓰기 |
 | 버전 관리 | MCP Git / GitPython | 자동 커밋 |
 | Web UI | [Chainlit](https://chainlit.io/) | 채팅 인터페이스 |
-| CLI | Click + Rich | 터미널 인터페이스 |
+| CLI | Click + Rich + prompt_toolkit | 터미널 인터페이스 (`locky`) |
 
 ---
 
@@ -152,23 +162,29 @@ Ollama에서 실행 가능한 모든 코딩 특화 모델을 지원합니다.
 | `codellama:7b` | 3.8 GB | 경량 환경 |
 | `deepseek-coder:6.7b` | 3.8 GB | 빠른 응답 |
 
-모델 변경 (`cli.py`에는 `--model` 플래그가 없음 — 환경변수 또는 `config.yaml`):
+모델 변경 (`locky`에는 `--model` 플래그가 없음 — 환경변수):
 
 ```bash
 export OLLAMA_MODEL=qwen2.5-coder:14b
-python cli.py "기능 추가"
+locky run "기능 추가"
 ```
 
 ---
 
 ## ⚙️ 설정
 
+주요 환경 변수:
+
+| 변수 | 설명 |
+|------|------|
+| `OLLAMA_MODEL` | Ollama 모델명 (기본 `qwen2.5-coder:7b`) |
+| `OLLAMA_BASE_URL` | Ollama API (기본 `http://localhost:11434`) |
+| `MCP_FILESYSTEM_ROOT` | MCP 파일 접근 루트 (기본 현재 디렉터리) |
+| `LOCKY_PERMISSION_MODE` | `workspace`(기본) 또는 `full` — CLI 세션/일부 경로에서 전역 접근 시 사용 |
+| `LOCKY_WEB_ALLOW_FULL` | 웹 UI에서 `full`을 허용하려면 `1` (기본 비활성, 위험) |
+
 ```yaml
-# config.yaml
-model: qwen2.5-coder:7b
-ollama_host: http://localhost:11434
-max_retries: 3
-workspace: ./workspace
+# (참고) 저장소에 config.yaml 샘플은 없으며, 위 환경 변수로 제어합니다.
 ```
 
 ---
