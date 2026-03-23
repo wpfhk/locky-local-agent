@@ -6,6 +6,8 @@ Ollama 설치부터 실제 사용까지 단계별 안내입니다.
 
 ## 1. Ollama 설치 및 실행
 
+> `locky commit` 명령만 Ollama가 필요합니다. 나머지 명령은 Ollama 없이 동작합니다.
+
 ### macOS
 
 ```bash
@@ -36,7 +38,7 @@ curl http://localhost:11434/api/tags
 
 ---
 
-## 2. 모델 다운로드
+## 2. 모델 다운로드 (`commit` 명령 사용 시만 필요)
 
 ```bash
 # 기본값 (추천)
@@ -60,17 +62,16 @@ ollama pull qwen2.5-coder:14b
 ```bash
 git clone https://github.com/your-username/locky-agent.git
 cd locky-agent
-./scripts/install.sh
+pip install -e .
 ```
 
-`install.sh`는 `.venv` 가상환경을 생성하고 `pip install -e .`로 editable 설치합니다.
-소스 수정이 재설치 없이 즉시 반영됩니다.
+`pip install -e .`은 editable 설치로, 소스 수정이 재설치 없이 즉시 반영됩니다.
 
 ---
 
 ## 4. 전역 설치 — `locky` 명령 어디서든 사용
 
-`install.sh` 실행 후 `locky`를 터미널 어디서든 쓰려면 아래 방법 중 하나를 선택하세요.
+`locky`를 터미널 어디서든 쓰려면 아래 방법 중 하나를 선택하세요.
 
 ### 방법 A — pipx (권장)
 
@@ -97,12 +98,11 @@ locky --version
 
 이 방법은 가상환경 활성화 없이 어느 디렉터리에서나 `locky` 명령이 동작합니다.
 
-> **소스 수정 후 업데이트:** `pipx install --force .`
-> **이미 `install.sh`로 설치한 경우** 방법 B(PATH 추가)가 더 간단합니다.
+> **소스 수정 후 재설치:** `pipx install --force .`
 
 ### 방법 B — 셸 설정에 PATH 추가
 
-`install.sh`로 이미 `.venv`가 만들어진 경우 가장 간단합니다.
+이미 `.venv`가 만들어진 경우 가장 간단합니다.
 
 ```bash
 # ~/.zshrc 또는 ~/.bashrc 에 아래 줄 추가 (실제 경로로 변경)
@@ -121,11 +121,11 @@ locky --version
 
 ```bash
 source /path/to/locky-agent/.venv/bin/activate
-locky run "..."
+locky commit
 ```
 
 > **어느 방법이든 `locky`는 실행 시점의 현재 디렉터리를 작업 루트로 사용합니다.**
-> 즉, `~/myproject`에서 `locky run "..."` 을 실행하면 해당 프로젝트에서만 읽기·쓰기가 이뤄집니다.
+> 즉, `~/myproject`에서 실행하면 해당 프로젝트에서만 읽기·쓰기가 이뤄집니다.
 
 ---
 
@@ -139,58 +139,88 @@ locky
 ```
 
 ```
-╭─────────────────────────────────────────────────────╮
-│  Locky                                              │
-│  모델   qwen2.5-coder:7b                            │
-│  워크스페이스  /Users/you/myproject                  │
-│  권한   workspace (이 디렉터리 이하)                  │
-│  Planner → Coder → Tester · /help 로 명령 안내      │
-╰─────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────╮
+│  Locky                                                   │
+│  버전        0.3.0                                       │
+│  모델        qwen2.5-coder:7b                            │
+│  워크스페이스 /Users/you/myproject                        │
+╰─ 개발자 귀찮은 작업 자동화 · /help 로 명령 안내 ─────────╯
 
-locky [/Users/you/myproject]> 파이썬으로 덧셈 프로그램 만들어줘
+locky [/Users/you/myproject]> /scan
+╭─ scan — issues_found ─────────────────╮
+│ issues (2개):                         │
+│   [high] app.py:42 — shell=True 사용  │
+│   [low] utils.py:17 — SSL 검증 비활성 │
+╰───────────────────────────────────────╯
 
-[Planner] ─── Stage 1: Planning ───
-[ContextAnalyzer] 단순 요청 감지 — 빠른 분석 모드
-[Planner] 분석 완료: 1개 태스크 도출 — 총 1.2s
-
-[Coder] ─── Stage 2: Coding ───
-[CoreDeveloper]   저장: addition.py
-[Coder] 구현 완료: 1개 파일 수정 — 총 18.4s
-
-[Tester] ─── Stage 3: Testing ───
-[Tester] 검증 완료: ✓ PASS — 총 3.1s
+locky [/Users/you/myproject]> /commit
+╭─ commit — ok ───────────────────────────────╮
+│ message: feat(auth): add jwt token verify   │
+│ committed: true                             │
+╰─────────────────────────────────────────────╯
 
 locky [/Users/you/myproject]> exit
 종료합니다.
 ```
 
-#### REPL 내부 명령
+#### REPL 슬래시 명령
 
 | 명령 | 설명 |
 |------|------|
-| `exit` 또는 `quit` | 종료 (슬래시 없이도 동작) |
-| `/exit` 또는 `/quit` | 동일 |
-| `/develop [요구사항]` | 개발 파이프라인 명시적 실행 |
-| `/mode workspace` | 현재 디렉터리 이하만 접근 (기본) |
-| `/mode full` | 로컬 전체 접근 (확인 프롬프트) |
-| `/permissions` | 현재 권한 모드와 루트 표시 |
-| `/clear` | 화면 재출력 |
+| `/commit [--dry-run] [--push]` | AI 커밋 메시지 생성 및 커밋 |
+| `/format [--check] [PATH...]` | black + isort + flake8 실행 |
+| `/test [PATH] [-v]` | pytest 실행 |
+| `/todo [--output FILE]` | TODO/FIXME 수집 |
+| `/scan [--severity LEVEL]` | 보안 패턴 스캔 |
+| `/clean [--force]` | 캐시/임시파일 정리 |
+| `/deps` | 의존성 버전 확인 |
+| `/env [--output FILE]` | .env.example 생성 |
+| `/clear` | 화면 초기화 |
 | `/help` | 명령 목록 |
-| `Ctrl+C` / `Ctrl+D` | 즉시 종료 |
+| `exit` / `quit` | 종료 (슬래시 없이도 동작) |
 
-> REPL에서 슬래시 없이 일반 텍스트를 입력하면 자동으로 파이프라인이 실행됩니다.
+> REPL에서 슬래시 없이 일반 텍스트를 입력하면 지원하는 명령 안내가 표시됩니다.
 
-### 원샷 실행
+### 단발 명령어 (CLI 서브커맨드)
 
 ```bash
-# 현재 디렉터리 기준
-locky run "로그인 API에 JWT 인증 추가해줘"
+# 커밋 메시지 자동 생성 및 커밋
+locky commit
 
-# 특정 프로젝트 지정
-locky run "버그 수정해줘" --workspace ~/myproject
+# dry-run (커밋하지 않고 메시지만 확인)
+locky commit --dry-run
 
-# 로컬 전체 접근 (확인 프롬프트 표시)
-locky run "..." --full
+# 커밋 후 push까지
+locky commit --push
+
+# 코드 포매팅
+locky format
+
+# 검사만 (실제 수정 안 함)
+locky format --check
+
+# 테스트 실행
+locky test
+locky test tests/test_api.py -v
+
+# TODO 수집 및 파일 저장
+locky todo
+locky todo --output todos.md
+
+# 보안 스캔
+locky scan
+locky scan --severity high      # high 이상만 표시
+
+# 임시 파일 정리 (dry-run 먼저 확인)
+locky clean
+locky clean --force             # 실제 삭제
+
+# 의존성 버전 확인
+locky deps
+
+# .env.example 생성
+locky env
+locky env --output .env.template
 ```
 
 ---
@@ -205,8 +235,7 @@ locky web
 
 브라우저에서 `http://localhost:8000` 접속.
 
-- `/develop [요구사항]` — 파이프라인 실행
-- 일반 텍스트 입력 — Ollama와 직접 대화 (파이프라인 미실행)
+Web UI에서도 `/commit`, `/format`, `/scan` 등 동일한 자동화 명령을 사용할 수 있습니다.
 
 ---
 
@@ -219,67 +248,34 @@ locky web
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5-coder:7b
 OLLAMA_TIMEOUT=300
-OLLAMA_TASK_TIMEOUT=60
 MCP_FILESYSTEM_ROOT=/path/to/your/project
-MAX_RETRY_ITERATIONS=3
 ```
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama 서버 주소 |
-| `OLLAMA_MODEL` | `qwen2.5-coder:7b` | 사용할 모델 |
+| `OLLAMA_MODEL` | `qwen2.5-coder:7b` | 사용할 모델 (`commit` 명령용) |
 | `OLLAMA_TIMEOUT` | `300` | LLM 호출 타임아웃 (초) |
-| `OLLAMA_TASK_TIMEOUT` | `60` | 태스크 분할 전용 타임아웃 (초) |
-| `MCP_FILESYSTEM_ROOT` | 현재 디렉터리 | 파이프라인 파일 접근 루트 |
-| `MAX_RETRY_ITERATIONS` | `3` | Coder-Tester 피드백 최대 반복 횟수 |
+| `MCP_FILESYSTEM_ROOT` | 현재 디렉터리 | 파일 접근 루트 |
 
 > `MCP_FILESYSTEM_ROOT`를 명시하지 않으면 `locky` 실행 시점의 현재 디렉터리가 루트로 사용됩니다.
 > 보통은 설정하지 않고 원하는 프로젝트 디렉터리에서 `locky`를 실행하는 것이 자연스럽습니다.
 
 ---
 
-## 8. 파이프라인 흐름
-
-```
-사용자 입력 (cmd)
-      │
-      ▼
-┌─────────────┐
-│  Planner    │  ← ContextAnalyzer: 코드베이스 분석
-│             │    (단순 요청은 Ollama 없이 빠른 분석)
-│             │  ← TaskBreaker: 원자 단위 태스크 JSON 생성
-└──────┬──────┘
-       │ task_list
-       ▼
-┌─────────────┐
-│  Coder      │  ← CoreDeveloper: Ollama 코드 생성 → 파일 저장
-│             │  ← RefactorFormatter: PEP8 정리
-└──────┬──────┘
-       │ modified_files
-       ▼
-┌─────────────┐   FAIL → (최대 3회 재시도)
-│  Tester     │  ← QAValidator: pytest 생성·실행
-│             │  ← SecurityAuditor: OWASP 패턴 스캔
-└──────┬──────┘
-       │ PASS
-       ▼
-     완료 ✅
-```
-
----
-
-## 9. 자주 묻는 질문
+## 8. 자주 묻는 질문
 
 **Q: `locky: command not found` 가 나와요**
 
 A: [전역 설치](#4-전역-설치--locky-명령-어디서든-사용) 섹션을 참고하세요.
-가장 빠른 방법은 `pipx install /path/to/locky-agent` 입니다.
+가장 빠른 방법: `cd /path/to/locky-agent && pipx install . && pipx ensurepath && source ~/.zshrc`
 
 ---
 
 **Q: Ollama가 응답하지 않아요**
 
-A: `ollama serve`가 실행 중인지, 포트 11434가 열려 있는지 확인하세요.
+A: `commit` 명령만 Ollama를 사용합니다. 나머지 명령은 Ollama 없이 동작합니다.
+`commit` 사용 시 `ollama serve`가 실행 중인지 확인:
 
 ```bash
 curl http://localhost:11434/api/tags
@@ -287,7 +283,7 @@ curl http://localhost:11434/api/tags
 
 ---
 
-**Q: 모델 응답이 너무 느려요**
+**Q: 모델 응답이 너무 느려요 (`commit` 명령)**
 
 A: 더 작은 모델로 변경하거나 GPU 가속 여부를 확인하세요.
 
@@ -298,32 +294,26 @@ export OLLAMA_MODEL=codellama:7b   # 경량 모델로 변경
 
 ---
 
-**Q: 특정 프로젝트 디렉터리에서만 작동하게 하고 싶어요**
-
-A: 두 가지 방법이 있습니다.
-
-```bash
-# 방법 1: 해당 디렉터리에서 실행
-cd ~/myproject && locky run "..."
-
-# 방법 2: --workspace 옵션
-locky run "..." --workspace ~/myproject
-```
-
----
-
-**Q: 테스트가 계속 실패해요**
-
-A: 재시도 횟수를 늘리거나 더 큰 모델을 사용하세요.
-
-```bash
-export MAX_RETRY_ITERATIONS=5
-export OLLAMA_MODEL=qwen2.5-coder:14b
-locky run "..."
-```
-
----
-
 **Q: REPL에서 종료가 안 돼요**
 
 A: `exit`, `quit`, `/exit`, `/quit` 중 하나를 입력하거나 `Ctrl+D`를 누르세요.
+
+---
+
+**Q: `locky format` 실행 시 `black not found` 오류가 나와요**
+
+A: 포매팅 도구가 설치되어 있지 않습니다. 대상 프로젝트 환경에 설치하세요:
+
+```bash
+pip install black isort flake8
+```
+
+---
+
+**Q: 특정 프로젝트에서만 사용하고 싶어요**
+
+A: 해당 프로젝트 디렉터리에서 `locky`를 실행하면 됩니다.
+
+```bash
+cd ~/myproject && locky
+```
