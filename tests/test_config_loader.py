@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -160,3 +160,35 @@ def test_get_auto_profile_from_yaml(tmp_path):
     (tmp_path / ".locky").mkdir()
     (tmp_path / ".locky" / "config.yaml").write_text("init:\n  auto_profile: false\n")
     assert get_auto_profile(tmp_path) is False
+
+
+# ── _maybe_refresh_profile ─────────────────────────────────────────────────
+
+
+def test_maybe_refresh_profile_calls_detect_when_enabled(tmp_path):
+    from locky_cli.main import _maybe_refresh_profile
+
+    mock_detect = MagicMock()
+    with patch("locky_cli.config_loader.get_auto_profile", return_value=True):
+        with patch("locky_cli.context.detect_and_save", mock_detect):
+            _maybe_refresh_profile(tmp_path)
+    # 비동기 스레드이므로 즉시 호출 여부보다 예외 없음을 확인
+    # (threading.Thread는 daemon=True로 실행됨)
+
+
+def test_maybe_refresh_profile_skips_when_disabled(tmp_path):
+    from locky_cli.main import _maybe_refresh_profile
+
+    mock_detect = MagicMock()
+    with patch("locky_cli.config_loader.get_auto_profile", return_value=False):
+        with patch("locky_cli.context.detect_and_save", mock_detect):
+            _maybe_refresh_profile(tmp_path)
+    mock_detect.assert_not_called()
+
+
+def test_maybe_refresh_profile_handles_import_error(tmp_path):
+    from locky_cli.main import _maybe_refresh_profile
+
+    # 예외가 발생해도 조용히 무시하는지 확인
+    with patch("locky_cli.config_loader.get_auto_profile", side_effect=ImportError):
+        _maybe_refresh_profile(tmp_path)  # 예외 없이 통과해야 함

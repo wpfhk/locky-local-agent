@@ -22,6 +22,19 @@ def _get_root(workspace_dir: Path | None) -> Path:
     return (workspace_dir or Path.cwd()).resolve()
 
 
+def _maybe_refresh_profile(root: Path) -> None:
+    """auto_profile 설정이 True이면 백그라운드에서 언어 프로파일을 갱신합니다."""
+    try:
+        from locky_cli.config_loader import get_auto_profile
+        if not get_auto_profile(root):
+            return
+        from locky_cli.context import detect_and_save
+        import threading
+        threading.Thread(target=detect_and_save, args=(root,), daemon=True).start()
+    except Exception:
+        pass
+
+
 def _print_result(console: Console, result: dict, title: str = "결과") -> None:
     """결과 dict를 Rich Panel로 출력합니다."""
     status = result.get("status", "unknown")
@@ -95,6 +108,7 @@ def commit_cmd(dry_run: bool, push: bool, workspace_dir: Path | None) -> None:
 
     result = run(root, dry_run=dry_run, push=push)
     _print_result(console, result, "locky commit")
+    _maybe_refresh_profile(root)
 
 
 @cli.command("format")
@@ -145,6 +159,7 @@ def format_cmd(check: bool, lang: str, paths: tuple, workspace_dir: Path | None)
         table.add_row(tool, f"[{t_color}]{tool_status}[/{t_color}]", tool_output)
 
     console.print(table)
+    _maybe_refresh_profile(root)
 
 
 @cli.command("test")
