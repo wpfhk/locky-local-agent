@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import shlex
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
+
+if TYPE_CHECKING:
+    from prompt_toolkit import PromptSession
 
 from rich.console import Console
 from rich.panel import Panel
@@ -117,8 +121,87 @@ help_text = (
     "/env [--output FILE]          — .env.example 생성\n"
     "/clear                        — 화면 초기화\n"
     "/help                         — 도움말\n"
-    "/exit 또는 /quit              — 종료"
+    "/exit 또는 /quit              — 종료\n\n"
+    "[bold]자연어 명령[/bold] — 슬래시 없이 입력하면 Ollama가 셸 명령으로 변환하여 확인 후 실행\n"
+    "  예) 현재 디렉토리에 존재하는 aab를 연결된 단말에 설치해줘"
 )
+
+
+def _handle_free_text(
+    console: Console,
+    session: "PromptSession",
+    state: SessionState,
+    text: str,
+) -> None:
+    """자유 텍스트 입력을 Ollama로 셸 명령으로 변환하고 확인 후 실행합니다."""
+    from actions.shell_command import run as shell_command_run
+
+    console.print("[dim]Ollama에 셸 명령 생성 요청 중...[/dim]")
+    result = shell_command_run(_get_root(state), request=text)
+
+    if result["status"] != "ok":
+        console.print(
+            Panel(
+                f"[red]{result['message']}[/red]\n\n"
+                "[dim]슬래시 명령을 사용하세요: /commit /format /test /help[/dim]",
+                title="명령 생성 실패",
+                border_style="red",
+                expand=False,
+            )
+        )
+        return
+
+    command = result["command"]
+    console.print(
+        Panel(
+            f"[bold cyan]{command}[/bold cyan]",
+            title="실행할 명령",
+            border_style="cyan",
+            expand=False,
+        )
+    )
+
+    try:
+        answer = session.prompt("실행하시겠습니까? [y/N] ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        console.print("[dim]취소되었습니다.[/dim]")
+        return
+
+    if answer not in ("y", "yes"):
+        console.print("[dim]취소되었습니다.[/dim]")
+        return
+
+    workspace_root = str(_get_root(state))
+    proc = subprocess.run(
+        command,
+        shell=True,
+        cwd=workspace_root,
+        capture_output=True,
+        text=True,
+    )
+
+    stdout = proc.stdout.strip()
+    stderr = proc.stderr.strip()
+    returncode = proc.returncode
+
+    output_lines = []
+    if stdout:
+        output_lines.append(stdout[:2000])
+    if stderr:
+        output_lines.append(f"[red]{stderr[:1000]}[/red]")
+
+    status_label = "ok" if returncode == 0 else "error"
+    color = "green" if returncode == 0 else "red"
+    body = "\n".join(output_lines) if output_lines else "(출력 없음)"
+
+    console.print(
+        Panel(
+            body,
+            title=f"실행 결과 — [{color}]{status_label}[/{color}] (exit {returncode})",
+            border_style=color,
+            expand=False,
+        )
+    )
 
 
 def run_interactive_session(
@@ -259,7 +342,5 @@ def run_interactive_session(
             )
             continue
 
-        # 일반 텍스트 입력
-        console.print(
-            "[dim]지원하는 명령: /commit /format /test /todo /scan /clean /deps /env /help[/dim]"
-        )
+        # 일반 텍스트 입력 — Ollama로 셸 명령 변환 후 사용자 확인
+        _handle_free_text(console, session, state, line)
