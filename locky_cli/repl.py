@@ -27,6 +27,26 @@ class SessionState:
     mode: PermissionMode = PermissionMode.WORKSPACE
 
 
+def _get_version() -> str:
+    """패키지 버전을 동적으로 읽습니다."""
+    try:
+        from importlib.metadata import version
+        return version("locky-agent")
+    except Exception:
+        pass
+    try:
+        import locky_cli
+        pyproject = Path(locky_cli.__file__).parent.parent / "pyproject.toml"
+        content = pyproject.read_text(encoding="utf-8")
+        for line in content.splitlines():
+            line = line.strip()
+            if line.startswith("version") and "=" in line:
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except Exception:
+        pass
+    return "unknown"
+
+
 def _banner(console: Console, state: SessionState) -> None:
     from locky_cli.config_loader import get_ollama_model, get_hook_steps
 
@@ -51,7 +71,7 @@ def _banner(console: Console, state: SessionState) -> None:
     hook_display = " → ".join(hook_steps) if hook_steps else "미설치"
 
     table = Table(show_header=False, box=None, padding=(0, 2))
-    table.add_row("버전", "1.1.0")
+    table.add_row("버전", _get_version())
     table.add_row("프로젝트", str(root.name))
     table.add_row("언어", lang)
     table.add_row("모델", f"{model}{model_source}")
@@ -141,6 +161,7 @@ help_text = (
     "/clean [--force]              — 캐시/임시파일 정리\n"
     "/deps                         — 의존성 버전 확인\n"
     "/env [--output FILE]          — .env.example 생성\n"
+    "/update [--check]             — locky 최신 버전으로 업데이트\n"
     "/clear                        — 화면 초기화\n"
     "/help                         — 도움말\n"
     "/exit 또는 /quit              — 종료\n\n"
@@ -356,6 +377,13 @@ def run_interactive_session(
                 from actions.env_template import run
                 result = run(_get_root(state), output=output_file)
                 _print_result(console, result, "env")
+                continue
+
+            if cmd == "update":
+                check_only = "--check" in args
+                from actions.update import run
+                result = run(_get_root(state), check_only=check_only)
+                _print_result(console, result, "update")
                 continue
 
             console.print(

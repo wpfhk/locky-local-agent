@@ -198,6 +198,7 @@ def test_cmd(path: str | None, verbose: bool, workspace_dir: Path | None) -> Non
     output = result.get("output", "")
     if output:
         console.print(Panel(output[-2000:], title="pytest 출력", border_style="dim"))
+    _maybe_refresh_profile(root)
 
 
 @cli.command("todo")
@@ -237,6 +238,7 @@ def todo_cmd(output: str | None, workspace_dir: Path | None) -> None:
     console.print(table)
     if output:
         console.print(f"[green]결과 저장:[/green] {output}")
+    _maybe_refresh_profile(root)
 
 
 @cli.command("scan")
@@ -293,6 +295,7 @@ def scan_cmd(severity: str | None, workspace_dir: Path | None) -> None:
         if len(issues) > 30:
             console.print(f"[dim]... 외 {len(issues) - 30}개[/dim]")
         console.print(issue_table)
+    _maybe_refresh_profile(root)
 
 
 @cli.command("clean")
@@ -327,6 +330,7 @@ def clean_cmd(force: bool, workspace_dir: Path | None) -> None:
     if len(removed) > 40:
         console.print(f"[dim]... 외 {len(removed) - 40}개[/dim]")
     console.print(table)
+    _maybe_refresh_profile(root)
 
 
 @cli.command("deps")
@@ -370,6 +374,7 @@ def deps_cmd(workspace_dir: Path | None) -> None:
             status_str,
         )
     console.print(table)
+    _maybe_refresh_profile(root)
 
 
 @cli.command("env")
@@ -405,6 +410,7 @@ def env_cmd(output: str, workspace_dir: Path | None) -> None:
             expand=False,
         )
     )
+    _maybe_refresh_profile(root)
 
 
 @cli.command("run")
@@ -483,9 +489,12 @@ def hook_cmd(action: str, steps: str, workspace_dir: Path | None) -> None:
     step_list = [s.strip() for s in steps.split(",") if s.strip()]
     result = run(root, action=action, steps=step_list)
     _print_result(console, result, f"locky hook {action}")
+    _maybe_refresh_profile(root)
 
 
 @cli.command("init")
+@click.option("--hook/--no-hook", "install_hook", default=None,
+              help="pre-commit 훅 설치 여부 (생략 시 대화형 확인).")
 @click.option(
     "--workspace", "-w",
     "workspace_dir",
@@ -493,7 +502,7 @@ def hook_cmd(action: str, steps: str, workspace_dir: Path | None) -> None:
     default=None,
     help="워크스페이스 루트(기본: 현재 디렉터리).",
 )
-def init_cmd(workspace_dir: Path | None) -> None:
+def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
     """프로젝트를 초기화합니다 (.locky/config.yaml 생성, hook 설치)."""
     import yaml  # type: ignore
     from locky_cli.context import detect_and_save
@@ -511,8 +520,9 @@ def init_cmd(workspace_dir: Path | None) -> None:
         show_default=True,
     )
 
-    # 2. hook 설치 여부
-    install_hook = click.confirm("pre-commit 훅을 설치할까요?", default=True)
+    # 2. hook 설치 여부 (--hook/--no-hook 플래그 없으면 대화형)
+    if install_hook is None:
+        install_hook = click.confirm("pre-commit 훅을 설치할까요?", default=True)
 
     # 3. hook 스텝 선택
     hook_steps_str = "format,test,scan"
