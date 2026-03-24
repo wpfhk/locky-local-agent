@@ -28,12 +28,34 @@ class SessionState:
 
 
 def _banner(console: Console, state: SessionState) -> None:
-    from config import OLLAMA_MODEL
+    from locky_cli.config_loader import get_ollama_model, get_hook_steps
+
+    root = state.workspace_root
+    model = get_ollama_model(root)
+    hook_steps = get_hook_steps(root)
+
+    # profile.json에서 언어 감지 결과 로드
+    lang = "unknown"
+    try:
+        from locky_cli.context import load_profile
+        profile = load_profile(root)
+        if profile:
+            lang = profile.get("language", {}).get("primary", "unknown")
+    except Exception:
+        pass
+
+    # config.yaml 사용 여부 표시
+    config_path = root / ".locky" / "config.yaml"
+    model_source = " [dim](config.yaml)[/dim]" if config_path.exists() else ""
+
+    hook_display = " → ".join(hook_steps) if hook_steps else "미설치"
 
     table = Table(show_header=False, box=None, padding=(0, 2))
-    table.add_row("버전", "0.3.0")
-    table.add_row("모델", OLLAMA_MODEL)
-    table.add_row("워크스페이스", str(state.workspace_root))
+    table.add_row("버전", "1.1.0")
+    table.add_row("프로젝트", str(root.name))
+    table.add_row("언어", lang)
+    table.add_row("모델", f"{model}{model_source}")
+    table.add_row("훅", hook_display)
     console.print(
         Panel(
             table,

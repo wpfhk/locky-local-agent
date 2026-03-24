@@ -65,7 +65,7 @@ def _print_result(console: Console, result: dict, title: str = "결과") -> None
     invoke_without_command=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-@click.version_option(version="1.0.0", prog_name="locky")
+@click.version_option(version="1.1.0", prog_name="locky")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
     """Locky — 개발자 귀찮은 작업 자동화 도구."""
@@ -472,46 +472,88 @@ def hook_cmd(action: str, steps: str, workspace_dir: Path | None) -> None:
 
 @cli.command("init")
 @click.option(
-    "--hook/--no-hook",
-    "install_hook",
-    default=True,
-    help="초기화 후 pre-commit hook을 설치합니다 (기본: 설치).",
-)
-@click.option(
     "--workspace", "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
     help="워크스페이스 루트(기본: 현재 디렉터리).",
 )
-def init_cmd(install_hook: bool, workspace_dir: Path | None) -> None:
-    """프로젝트를 초기화합니다 (언어 감지, 컨텍스트 저장, hook 설치)."""
+def init_cmd(workspace_dir: Path | None) -> None:
+    """프로젝트를 초기화합니다 (.locky/config.yaml 생성, hook 설치)."""
+    import yaml  # type: ignore
     from locky_cli.context import detect_and_save
     from actions.hook import run as hook_run
 
     console = Console()
     root = _get_root(workspace_dir)
-    console.print(f"[dim]루트:[/dim] {root}")
+    console.print(f"\n[bold cyan]Locky 프로젝트 설정을 시작합니다.[/bold cyan]")
+    console.print(f"[dim]루트:[/dim] {root}\n")
 
-    # 1. 프로젝트 컨텍스트 감지 및 저장
-    console.print("[cyan]프로젝트 컨텍스트 감지 중...[/cyan]")
-    profile = detect_and_save(root)
+    # 1. Ollama 모델 선택
+    model = click.prompt(
+        "Ollama 모델을 선택하세요",
+        default="qwen2.5-coder:7b",
+        show_default=True,
+    )
 
-    lang = profile.get("language", {}).get("primary", "unknown")
-    commit_style = profile.get("commit_style", {}).get("type", "unknown")
-    console.print(f"  언어: [bold]{lang}[/bold]")
-    console.print(f"  커밋 스타일: [bold]{commit_style}[/bold]")
-    console.print(f"  프로파일 저장: [dim].locky/profile.json[/dim]")
+    # 2. hook 설치 여부
+    install_hook = click.confirm("pre-commit 훅을 설치할까요?", default=True)
 
-    # 2. pre-commit hook 설치 (선택)
+    # 3. hook 스텝 선택
+    hook_steps_str = "format,test,scan"
     if install_hook:
-        console.print("\n[cyan]pre-commit hook 설치 중...[/cyan]")
-        hook_result = hook_run(root, action="install")
-        hook_status = hook_result.get("status", "error")
-        hook_color = "green" if hook_status == "ok" else "red"
-        console.print(f"  [{hook_color}]{hook_result.get('message', hook_status)}[/{hook_color}]")
+        hook_steps_str = click.prompt(
+            "훅 실행 스텝 (쉼표 구분)",
+            default="format,test,scan",
+            show_default=True,
+        )
 
-    console.print("\n[green]초기화 완료![/green] `locky --help`로 사용법을 확인하세요.")
+    # 4. config.yaml 생성
+    locky_dir = root / ".locky"
+    locky_dir.mkdir(exist_ok=True)
+    config_path = locky_dir / "config.yaml"
+
+    hook_steps = [s.strip() for s in hook_steps_str.split(",") if s.strip()]
+    config_data = {
+        "ollama": {"model": model},
+        "hook": {"steps": hook_steps},
+        "init": {"auto_profile": True},
+    }
+    config_path.write_text(yaml.dump(config_data, allow_unicode=True, default_flow_style=False))
+    console.print(f"\n[green]✓[/green] .locky/config.yaml 생성 완료")
+
+    # 5. 프로젝트 컨텍스트 감지 및 저장
+    console.print("[cyan]프로젝트 컨텍스트 감지 중...[/cyan]")
+    try:
+        profile = detect_and_save(root)
+        lang = profile.get("language", {}).get("primary", "unknown")
+        console.print(f"[green]✓[/green] 언어 감지: [bold]{lang}[/bold]  (.locky/profile.json 저장)")
+    except Exception:
+        console.print("[dim]프로파일 감지 생략[/dim]")
+
+    # 6. hook 설치
+    if install_hook:
+        hook_result = hook_run(root, action="install", steps=hook_steps)
+        hook_status = hook_result.get("status", "error")
+        if hook_status == "ok":
+            console.print(f"[green]✓[/green] pre-commit 훅 설치 완료 ({' → '.join(hook_steps)})")
+        else:
+            console.print(f"[yellow]![/yellow] 훅 설치: {hook_result.get('message', hook_status)}")
+
+    console.print("\n[bold green]초기화 완료![/bold green] `locky --help`로 사용법을 확인하세요.")
+
+
+@cli.command("update")
+@click.option("--check", is_flag=True, help="버전 확인만 (업데이트하지 않음).")
+def update_cmd(check: bool) -> None:
+    """locky를 최신 버전으로 업데이트합니다."""
+    from actions.update import run
+
+    console = Console()
+    if not check:
+        console.print("[cyan]업데이트를 확인하는 중...[/cyan]")
+    result = run(Path.cwd(), check_only=check)
+    _print_result(console, result, "locky update")
 
 
 @cli.group("plugin")

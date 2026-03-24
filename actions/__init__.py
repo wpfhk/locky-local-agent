@@ -10,6 +10,7 @@ from actions.security_scan import run as security_scan
 from actions.shell_command import run as shell_command
 from actions.test_runner import run as test_runner
 from actions.todo_collector import run as todo_collector
+from actions.update import run as update
 
 __all__ = [
     "cleanup",
@@ -23,4 +24,5 @@ __all__ = [
     "shell_command",
     "test_runner",
     "todo_collector",
+    "update",
 ]
