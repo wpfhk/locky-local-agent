@@ -64,7 +64,7 @@ def _print_result(console: Console, result: dict, title: str = "결과") -> None
     invoke_without_command=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-@click.version_option(version="0.3.0", prog_name="locky")
+@click.version_option(version="0.4.0", prog_name="locky")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
     """Locky — 개발자 귀찮은 작업 자동화 도구."""
@@ -379,6 +379,34 @@ def env_cmd(output: str, workspace_dir: Path | None) -> None:
             expand=False,
         )
     )
+
+
+@cli.command("hook")
+@click.argument("action", type=click.Choice(["install", "uninstall", "status"]), default="install")
+@click.option(
+    "--steps", "-s",
+    default="format,test,scan",
+    show_default=True,
+    help="실행할 단계(쉼표 구분): format, test, scan",
+)
+@click.option(
+    "--workspace", "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def hook_cmd(action: str, steps: str, workspace_dir: Path | None) -> None:
+    """pre-commit hook을 설치·제거·상태 확인합니다."""
+    from actions.hook import run
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    console.print(f"[dim]루트:[/dim] {root}")
+
+    step_list = [s.strip() for s in steps.split(",") if s.strip()]
+    result = run(root, action=action, steps=step_list)
+    _print_result(console, result, f"locky hook {action}")
 
 
 def _launch_chainlit_dashboard() -> None:
