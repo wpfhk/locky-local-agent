@@ -9,9 +9,6 @@ description = "100% 로컬 AI 개발 에이전트 — Planner, Coder, Tester"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "langgraph>=0.2.0",
-    "langchain-core>=0.3.0",
-    "langchain-community>=0.3.0",
     "httpx>=0.27.0",
     "gitpython>=3.1.40",
     "chainlit>=1.3.0",
@@ -27,14 +24,15 @@ dependencies = [
 locky = "locky_cli.main:main"
 
 [project.optional-dependencies]
-dev = ["pytest>=7.0.0"]
+dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["actions*", "agents*", "states*", "tools*", "locky_cli*", "ui*"]
+include = ["actions*", "tools*", "locky_cli*", "ui*"]
 
 [tool.setuptools]
-py-modules = ["graph", "config"]
+py-modules = ["config"]
 
-[tool.setuptools.package-data]
-"agents" = ["prompts/*.md"]
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=actions --cov=locky_cli --cov-report=term-missing"
