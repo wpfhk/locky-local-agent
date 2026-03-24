@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "locky-agent"
-version = "0.2.0"
+version = "0.3.0"
 description = "100% 로컬 AI 개발 에이전트 — Planner, Coder, Tester"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -31,7 +31,7 @@ dev = ["pytest>=7.0.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agents*", "states*", "tools*", "locky_cli*", "ui*"]
+include = ["actions*", "agents*", "states*", "tools*", "locky_cli*", "ui*"]
 
 [tool.setuptools]
 py-modules = ["graph", "config"]
