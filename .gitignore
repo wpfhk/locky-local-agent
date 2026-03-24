@@ -93,3 +93,7 @@ pytestdebug.log
 
 # locky 프로젝트별 캐시 (로컬 전용)
 .locky/
+
+# 로컬 기획 문서 (커밋 제외)
+docs/CC_dev_system_development_plan.md
+docs/Locky_agent_dev_plan_requirement.md
