@@ -8,10 +8,10 @@
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM-000000?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com/)
-[![Chainlit](https://img.shields.io/badge/Chainlit-Web%20UI-FF6B35?style=for-the-badge)](https://chainlit.io/)
+[![Version](https://img.shields.io/badge/Version-1.0.0-blue?style=for-the-badge)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-[시작하기](#-빠른-시작) · [튜토리얼](TUTORIAL.md) · [명령어](#-명령어)
+[시작하기](#-빠른-시작) · [명령어](#-명령어) · [다언어 지원](#-다언어-포맷터)
 
 </div>
 
@@ -29,24 +29,89 @@
 | 🔒 | **완전한 데이터 주권** | 코드가 외부로 나가지 않음 |
 | ⚡ | **빠른 자동화** | 포매팅·스캔·정리 명령은 LLM 없이 즉시 실행 |
 | 🤖 | **AI 커밋 메시지** | Ollama 기반 Conventional Commits 자동 생성 |
+| 🌐 | **다언어 포맷터** | Python/JS/TS/Go/Rust/Kotlin/Swift 지원 |
+| 🔗 | **pre-commit 훅** | format→test→scan 자동 파이프라인 |
 | 💻 | **REPL + CLI 지원** | 인터랙티브 세션 또는 단발 명령어 모두 지원 |
 
 ---
 
 ## 🛠 명령어
 
+### 기본 자동화 명령어
+
 | 명령어 | 설명 |
 |---|---|
-| `locky commit` | AI가 git diff를 읽어 Conventional Commits 메시지 생성 후 커밋 |
-| `locky format` | black + isort + flake8 자동 실행 |
-| `locky test` | pytest 실행 및 결과 요약 |
-| `locky todo` | 프로젝트 전체 TODO/FIXME/HACK 수집 |
-| `locky scan` | OWASP 패턴 기반 보안 취약점 스캔 |
-| `locky clean` | `__pycache__`, `.pyc`, `.pytest_cache` 등 정리 |
-| `locky deps` | requirements.txt vs 설치된 패키지 버전 비교 |
-| `locky env` | .env → .env.example 자동 생성 |
+| `locky commit [--dry-run] [--push]` | AI가 git diff를 읽어 Conventional Commits 메시지 생성 후 커밋 |
+| `locky format [--check] [--lang LANG] [PATH...]` | 자동 언어 감지 후 포매터 실행 |
+| `locky test [PATH] [-v]` | pytest 실행 및 결과 요약 |
+| `locky todo [--output FILE]` | 프로젝트 전체 TODO/FIXME/HACK 수집 |
+| `locky scan [--severity LEVEL]` | OWASP 패턴 기반 보안 취약점 스캔 |
+| `locky clean [--force]` | `__pycache__`, `.pyc`, `.pytest_cache` 등 정리 |
+| `locky deps` | requirements.txt/pyproject.toml/package.json/go.mod vs 설치 버전 비교 |
+| `locky env [--output FILE]` | .env → .env.example 자동 생성 |
+
+### 훅 및 파이프라인 명령어
+
+| 명령어 | 설명 |
+|---|---|
+| `locky hook install [--steps STEPS]` | git pre-commit 훅 설치 (format→test→scan) |
+| `locky hook uninstall` | 훅 제거 및 이전 훅 복원 |
+| `locky hook status` | 훅 설치 여부 확인 |
+| `locky run STEP [STEP...]` | 여러 명령을 순서대로 실행 (파이프라인) |
+| `locky init [--hook/--no-hook]` | 프로젝트 초기화 및 설정 가이드 |
+
+### 플러그인 명령어
+
+| 명령어 | 설명 |
+|---|---|
+| `locky plugin list` | `~/.locky/plugins/` 에 설치된 플러그인 목록 |
 
 REPL 모드에서는 `/commit`, `/format`, `/test` 등 슬래시 명령으로 동일하게 사용합니다.
+
+---
+
+## 🌐 다언어 포맷터
+
+`locky format`은 언어를 자동 감지하여 적합한 포매터를 실행합니다.
+
+| 언어 | 포매터 |
+|---|---|
+| Python | black + isort + flake8 |
+| JavaScript | prettier |
+| TypeScript | prettier + eslint |
+| Go | gofmt |
+| Rust | rustfmt |
+| Kotlin | ktlint |
+| Swift | swiftformat |
+
+```bash
+# 자동 감지 (기본)
+locky format
+
+# 언어 지정
+locky format --lang go
+locky format --lang typescript
+
+# 검사만 (파일 수정 없음)
+locky format --check
+```
+
+---
+
+## 🔗 pre-commit 훅
+
+`locky hook install`로 git commit 전 자동으로 format → test → scan을 실행합니다.
+
+```bash
+# 훅 설치
+locky hook install
+
+# 커스텀 스텝 지정
+locky hook install --steps format,test
+
+# 훅 제거 (기존 훅 자동 복원)
+locky hook uninstall
+```
 
 ---
 
@@ -76,46 +141,46 @@ cd locky-agent
 pip install -e .
 ```
 
-전역 설치 (`locky` 명령을 어디서든 사용) → [전역 설치 가이드](TUTORIAL.md#4-전역-설치--locky-명령-어디서든-사용)
+전역 설치 (`locky` 명령을 어디서든 사용):
 
-### 3. 실행
+```bash
+pipx install -e .
+```
+
+### 3. 프로젝트 초기화
+
+```bash
+cd ~/myproject
+locky init
+```
+
+### 4. 실행
 
 ```bash
 # 인터랙티브 REPL (권장)
-cd ~/myproject
 locky
 
 # 단발 명령어
 locky commit          # AI 커밋 메시지 생성 및 커밋
-locky format          # 코드 포매팅
+locky format          # 코드 포매팅 (언어 자동 감지)
 locky scan            # 보안 스캔
 locky todo            # TODO 수집
 
-# Web UI
-locky dashboard
+# 파이프라인 실행
+locky run format test scan
 ```
 
-실행 화면 (REPL):
+---
 
-```
-╭──────────────── Locky ────────────────╮
-│  버전        0.3.0                    │
-│  모델        qwen2.5-coder:7b         │
-│  워크스페이스 /Users/you/myproject     │
-╰─ 개발자 귀찮은 작업 자동화 · /help ──╯
+## 📦 의존성 확인 (다중 포맷)
 
-locky [/Users/you/myproject]> /scan
-╭─ scan — issues_found ─╮
-│ issues (3개):          │
-│   [high] app.py:42 …  │
-╰───────────────────────╯
+`locky deps`는 프로젝트의 의존성 파일을 자동 감지하여 설치된 버전과 비교합니다.
 
-locky [/Users/you/myproject]> /commit
-╭─ commit — ok ────────────────────────╮
-│ message: feat(auth): add jwt token…  │
-│ committed: true                       │
-╰───────────────────────────────────────╯
-```
+지원 형식 (우선순위 순):
+1. `requirements.txt`
+2. `pyproject.toml` (PEP 621 및 Poetry)
+3. `package.json` (dependencies + devDependencies)
+4. `go.mod`
 
 ---
 
@@ -153,11 +218,16 @@ locky commit
 
 - [x] 8개 자동화 명령어 (commit / format / test / todo / scan / clean / deps / env)
 - [x] 인터랙티브 REPL (`locky`)
-- [x] Chainlit Web UI
 - [x] AI 커밋 메시지 (Conventional Commits)
+- [x] 다언어 포맷터 (Python/JS/TS/Go/Rust/Kotlin/Swift)
+- [x] pre-commit 훅 (format→test→scan)
+- [x] 멀티스텝 파이프라인 (`locky run`)
+- [x] Ollama 헬스체크 + 자동 시작
+- [x] 플러그인 아키텍처 (`~/.locky/plugins/`)
+- [x] 의존성 다중 포맷 파서 (requirements.txt/pyproject.toml/package.json/go.mod)
 - [ ] VS Code Extension
 - [ ] GitHub Actions 통합
-- [ ] 프로젝트 장기 메모리
+- [ ] `.locky/config.yaml` 프로젝트 설정
 
 ---
 
