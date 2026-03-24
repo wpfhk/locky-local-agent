@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import subprocess
 import sys
@@ -461,6 +462,105 @@ def hook_cmd(action: str, steps: str, workspace_dir: Path | None) -> None:
     step_list = [s.strip() for s in steps.split(",") if s.strip()]
     result = run(root, action=action, steps=step_list)
     _print_result(console, result, f"locky hook {action}")
+
+
+@cli.command("init")
+@click.option(
+    "--hook/--no-hook",
+    "install_hook",
+    default=True,
+    help="초기화 후 pre-commit hook을 설치합니다 (기본: 설치).",
+)
+@click.option(
+    "--workspace", "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def init_cmd(install_hook: bool, workspace_dir: Path | None) -> None:
+    """프로젝트를 초기화합니다 (언어 감지, 컨텍스트 저장, hook 설치)."""
+    from locky_cli.context import detect_and_save
+    from actions.hook import run as hook_run
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    console.print(f"[dim]루트:[/dim] {root}")
+
+    # 1. 프로젝트 컨텍스트 감지 및 저장
+    console.print("[cyan]프로젝트 컨텍스트 감지 중...[/cyan]")
+    profile = detect_and_save(root)
+
+    lang = profile.get("language", {}).get("primary", "unknown")
+    commit_style = profile.get("commit_style", {}).get("type", "unknown")
+    console.print(f"  언어: [bold]{lang}[/bold]")
+    console.print(f"  커밋 스타일: [bold]{commit_style}[/bold]")
+    console.print(f"  프로파일 저장: [dim].locky/profile.json[/dim]")
+
+    # 2. pre-commit hook 설치 (선택)
+    if install_hook:
+        console.print("\n[cyan]pre-commit hook 설치 중...[/cyan]")
+        hook_result = hook_run(root, action="install")
+        hook_status = hook_result.get("status", "error")
+        hook_color = "green" if hook_status == "ok" else "red"
+        console.print(f"  [{hook_color}]{hook_result.get('message', hook_status)}[/{hook_color}]")
+
+    console.print("\n[green]초기화 완료![/green] `locky --help`로 사용법을 확인하세요.")
+
+
+@cli.group("plugin")
+def plugin_group() -> None:
+    """플러그인을 관리합니다."""
+
+
+@plugin_group.command("list")
+def plugin_list_cmd() -> None:
+    """설치된 플러그인 목록을 표시합니다."""
+    console = Console()
+    plugins = _load_plugins()
+
+    if not plugins:
+        console.print("[dim]설치된 플러그인이 없습니다.[/dim]")
+        console.print(f"[dim]플러그인 경로: {Path.home() / '.locky' / 'plugins'}[/dim]")
+        return
+
+    table = Table(title=f"플러그인 목록 — {len(plugins)}개", show_header=True)
+    table.add_column("이름", style="cyan")
+    table.add_column("버전")
+    table.add_column("설명")
+
+    for name, mod in plugins.items():
+        version = getattr(mod, "PLUGIN_VERSION", "?")
+        desc = getattr(mod, "PLUGIN_DESCRIPTION", "")
+        table.add_row(name, version, desc)
+
+    console.print(table)
+
+
+def _load_plugins() -> dict:
+    """~/.locky/plugins/{name}/action.py 플러그인을 로드합니다."""
+    plugins_dir = Path.home() / ".locky" / "plugins"
+    if not plugins_dir.is_dir():
+        return {}
+
+    loaded = {}
+    for plugin_dir in sorted(plugins_dir.iterdir()):
+        if not plugin_dir.is_dir():
+            continue
+        action_file = plugin_dir / "action.py"
+        if not action_file.exists():
+            continue
+        try:
+            spec = importlib.util.spec_from_file_location(plugin_dir.name, action_file)
+            if spec is None or spec.loader is None:
+                continue
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)  # type: ignore[union-attr]
+            plugin_name = getattr(mod, "PLUGIN_NAME", plugin_dir.name)
+            loaded[plugin_name] = mod
+        except Exception:
+            pass  # 플러그인 로드 실패 시 무시
+    return loaded
 
 
 def _launch_chainlit_dashboard() -> None:
