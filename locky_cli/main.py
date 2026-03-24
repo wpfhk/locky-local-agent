@@ -107,7 +107,7 @@ def commit_cmd(dry_run: bool, push: bool, workspace_dir: Path | None) -> None:
     help="워크스페이스 루트(기본: 현재 디렉터리).",
 )
 def format_cmd(check: bool, paths: tuple, workspace_dir: Path | None) -> None:
-    """black/isort/flake8을 실행합니다."""
+    """black/isort/flake8 또는 언어별 포맷터를 실행합니다."""
     from actions.format_code import run
 
     console = Console()
@@ -117,16 +117,20 @@ def format_cmd(check: bool, paths: tuple, workspace_dir: Path | None) -> None:
     console.print(f"[dim]루트:[/dim] {root}")
     result = run(root, check_only=check, paths=path_list)
 
-    # 각 도구별 상세 출력
     status = result.get("status", "ok")
+    lang = result.get("language", "python")
     color = "green" if status == "ok" else "red"
 
-    table = Table(title="포맷 결과", show_header=True)
+    # 결과에서 도구 항목만 추출 (status, language 키 제외)
+    _skip = {"status", "language"}
+    tool_names = [k for k, v in result.items() if k not in _skip and isinstance(v, dict)]
+
+    table = Table(title=f"포맷 결과 [{lang}]", show_header=True)
     table.add_column("도구", style="cyan")
     table.add_column("상태")
     table.add_column("출력")
 
-    for tool in ["black", "isort", "flake8"]:
+    for tool in tool_names:
         tool_result = result.get(tool, {})
         tool_status = tool_result.get("status", "unknown")
         tool_output = (tool_result.get("output", "") or "")[:120]

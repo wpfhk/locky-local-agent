@@ -31,14 +31,19 @@ def detect(root: Path) -> dict[str, object]:
     Returns:
         {"primary": "python", "all": ["python", "javascript"]}
     """
+    files: list[str] = []
     try:
         result = subprocess.run(
             ["git", "ls-files"],
             cwd=root, capture_output=True, text=True, timeout=10,
         )
-        files = result.stdout.splitlines()
+        if result.returncode == 0:
+            files = result.stdout.splitlines()
     except Exception:
-        # git 미사용 프로젝트 fallback
+        pass
+
+    if not files:
+        # git 미사용 프로젝트 또는 빈 레포 fallback
         files = [str(f.relative_to(root)) for f in root.rglob("*") if f.is_file()]
 
     counts: Counter[str] = Counter()
