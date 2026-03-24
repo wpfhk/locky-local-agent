@@ -173,6 +173,13 @@ def _generate_commit_message(diff_text: str, staged_files: List[str]) -> str:
         from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
         import httpx
 
+        # Ollama 서버 헬스체크 (미기동 시 자동 시작 시도)
+        try:
+            from tools.ollama_guard import ensure_ollama
+            ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
+        except Exception:
+            pass  # guard 실패 시 그대로 진행 (기존 오류 처리에 위임)
+
         # diff가 너무 길면 자름
         max_diff_len = 4000
         if len(diff_text) > max_diff_len:

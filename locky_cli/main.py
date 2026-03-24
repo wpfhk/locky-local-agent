@@ -99,6 +99,12 @@ def commit_cmd(dry_run: bool, push: bool, workspace_dir: Path | None) -> None:
 
 @cli.command("format")
 @click.option("--check", is_flag=True, help="수정하지 않고 검사만 수행.")
+@click.option(
+    "--lang", "-l",
+    default="auto",
+    show_default=True,
+    help="사용할 언어 (auto/python/javascript/typescript/go/rust 등).",
+)
 @click.argument("paths", nargs=-1)
 @click.option(
     "--workspace", "-w",
@@ -107,7 +113,7 @@ def commit_cmd(dry_run: bool, push: bool, workspace_dir: Path | None) -> None:
     default=None,
     help="워크스페이스 루트(기본: 현재 디렉터리).",
 )
-def format_cmd(check: bool, paths: tuple, workspace_dir: Path | None) -> None:
+def format_cmd(check: bool, lang: str, paths: tuple, workspace_dir: Path | None) -> None:
     """black/isort/flake8 또는 언어별 포맷터를 실행합니다."""
     from actions.format_code import run
 
@@ -116,7 +122,7 @@ def format_cmd(check: bool, paths: tuple, workspace_dir: Path | None) -> None:
     path_list = list(paths) if paths else None
 
     console.print(f"[dim]루트:[/dim] {root}")
-    result = run(root, check_only=check, paths=path_list)
+    result = run(root, check_only=check, paths=path_list, lang=lang)
 
     status = result.get("status", "ok")
     lang = result.get("language", "python")

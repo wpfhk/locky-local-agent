@@ -99,6 +99,13 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
         from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
         import httpx
 
+        # Ollama 서버 헬스체크 (미기동 시 자동 시작 시도)
+        try:
+            from tools.ollama_guard import ensure_ollama
+            ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
+        except Exception:
+            pass  # guard 실패 시 그대로 진행
+
         payload = {
             "model": OLLAMA_MODEL,
             "messages": [{"role": "user", "content": user_message}],
