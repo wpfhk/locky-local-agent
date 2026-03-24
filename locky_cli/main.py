@@ -65,7 +65,7 @@ def _print_result(console: Console, result: dict, title: str = "결과") -> None
     invoke_without_command=True,
     context_settings={"help_option_names": ["-h", "--help"]},
 )
-@click.version_option(version="0.4.0", prog_name="locky")
+@click.version_option(version="1.0.0", prog_name="locky")
 @click.pass_context
 def cli(ctx: click.Context) -> None:
     """Locky — 개발자 귀찮은 작업 자동화 도구."""
