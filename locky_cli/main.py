@@ -385,6 +385,56 @@ def env_cmd(output: str, workspace_dir: Path | None) -> None:
     )
 
 
+@cli.command("run")
+@click.argument("steps", nargs=-1, required=True)
+@click.option("--no-fail-fast", "fail_fast", is_flag=True, default=True, flag_value=False,
+              help="실패해도 나머지 단계를 계속 실행합니다.")
+@click.option(
+    "--workspace", "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def run_cmd(steps: tuple, fail_fast: bool, workspace_dir: Path | None) -> None:
+    """여러 명령을 순서대로 실행합니다. 예: locky run format test commit"""
+    from actions.pipeline import run
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    steps_str = " ".join(steps)
+    console.print(f"[dim]루트:[/dim] {root}")
+    console.print(f"[dim]단계:[/dim] {steps_str}")
+
+    result = run(root, steps=steps_str, fail_fast=fail_fast)
+
+    if result.get("status") == "error" and not result.get("results"):
+        console.print(Panel(result.get("message", "오류"), title="오류", border_style="red"))
+        return
+
+    table = Table(title=f"파이프라인 결과 — {result['executed']}/{result['total']} 단계", show_header=True)
+    table.add_column("단계", style="cyan", width=12)
+    table.add_column("상태")
+    table.add_column("메시지")
+
+    for step_result in result.get("results", []):
+        step = step_result.get("step", "")
+        s = step_result.get("status", "unknown")
+        msg = step_result.get("message", step_result.get("output", ""))
+        if isinstance(msg, str):
+            msg = msg[:80]
+        else:
+            msg = ""
+        s_color = "green" if s in ("ok", "pass", "clean", "nothing_to_commit") else "red"
+        table.add_row(step, f"[{s_color}]{s}[/{s_color}]", msg)
+
+    console.print(table)
+
+    failed_at = result.get("failed_at")
+    if failed_at:
+        console.print(f"[red]'{failed_at}' 단계에서 중단되었습니다.[/red]")
+
+
 @cli.command("hook")
 @click.argument("action", type=click.Choice(["install", "uninstall", "status"]), default="install")
 @click.option(

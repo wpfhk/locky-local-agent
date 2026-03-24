@@ -5,6 +5,7 @@ from actions.deps_check import run as deps_check
 from actions.env_template import run as env_template
 from actions.format_code import run as format_code
 from actions.hook import run as hook
+from actions.pipeline import run as pipeline
 from actions.security_scan import run as security_scan
 from actions.shell_command import run as shell_command
 from actions.test_runner import run as test_runner
@@ -17,6 +18,7 @@ __all__ = [
     "env_template",
     "format_code",
     "hook",
+    "pipeline",
     "security_scan",
     "shell_command",
     "test_runner",
