@@ -59,38 +59,51 @@ def run(root: Path, dry_run: bool = False, push: bool = False) -> dict:
 
         # staged 파일이 없으면 modified 파일 자동 stage
         if not staged_files:
-            modified_files = [
-                line[3:].strip()
-                for line in status_lines
-                if line and not line.startswith("??")
-            ]
-            if not modified_files:
-                # untracked only
-                untracked = [
-                    line[3:].strip() for line in status_lines if line.startswith("??")
-                ]
-                if not untracked:
-                    return {
-                        "status": "nothing_to_commit",
-                        "message": "커밋할 변경 사항이 없습니다.",
-                        "committed_files": [],
-                    }
-                modified_files = untracked
-
-            add_result = subprocess.run(
-                ["git", "add"] + modified_files,
-                cwd=str(root),
-                capture_output=True,
-                text=True,
-                timeout=30,
+            has_tracked_changes = any(
+                line and not line.startswith("??") for line in status_lines
             )
+            has_untracked = any(line.startswith("??") for line in status_lines)
+
+            if not has_tracked_changes and not has_untracked:
+                return {
+                    "status": "nothing_to_commit",
+                    "message": "커밋할 변경 사항이 없습니다.",
+                    "committed_files": [],
+                }
+
+            # tracked 변경 파일(수정·삭제·rename 포함)은 git add -u로 일괄 스테이지
+            # untracked 파일만 있는 경우 git add .으로 처리
+            if has_tracked_changes:
+                add_result = subprocess.run(
+                    ["git", "add", "-u"],
+                    cwd=str(root),
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+            else:
+                add_result = subprocess.run(
+                    ["git", "add", "."],
+                    cwd=str(root),
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
             if add_result.returncode != 0:
                 return {
                     "status": "error",
                     "message": f"git add 실패: {add_result.stderr.strip()}",
                     "committed_files": [],
                 }
-            staged_files = modified_files
+            # git add 이후 실제 staged 파일 목록 재조회
+            staged_result2 = subprocess.run(
+                ["git", "diff", "--cached", "--name-only"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            staged_files = [f for f in staged_result2.stdout.strip().splitlines() if f]
 
         # diff 내용 가져오기
         diff_result = subprocess.run(
