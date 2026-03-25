@@ -31,11 +31,13 @@ def _get_version() -> str:
     """패키지 버전을 동적으로 읽습니다."""
     try:
         from importlib.metadata import version
+
         return version("locky-agent")
     except Exception:
         pass
     try:
         import locky_cli
+
         pyproject = Path(locky_cli.__file__).parent.parent / "pyproject.toml"
         content = pyproject.read_text(encoding="utf-8")
         for line in content.splitlines():
@@ -48,7 +50,7 @@ def _get_version() -> str:
 
 
 def _banner(console: Console, state: SessionState) -> None:
-    from locky_cli.config_loader import get_ollama_model, get_hook_steps
+    from locky_cli.config_loader import get_hook_steps, get_ollama_model
 
     root = state.workspace_root
     model = get_ollama_model(root)
@@ -58,6 +60,7 @@ def _banner(console: Console, state: SessionState) -> None:
     lang = "unknown"
     try:
         from locky_cli.context import load_profile
+
         profile = load_profile(root)
         if profile:
             lang = profile.get("language", {}).get("primary", "unknown")
@@ -258,7 +261,9 @@ def run_interactive_session(
         from prompt_toolkit import PromptSession
         from prompt_toolkit.history import InMemoryHistory
     except ImportError:
-        print("prompt_toolkit이 필요합니다: pip install prompt-toolkit", file=sys.stderr)
+        print(
+            "prompt_toolkit이 필요합니다: pip install prompt-toolkit", file=sys.stderr
+        )
         sys.exit(1)
 
     console = Console()
@@ -307,6 +312,7 @@ def run_interactive_session(
                 dry_run = "--dry-run" in args
                 push = "--push" in args
                 from actions.commit import run
+
                 result = run(_get_root(state), dry_run=dry_run, push=push)
                 _print_result(console, result, "commit")
                 continue
@@ -315,7 +321,10 @@ def run_interactive_session(
                 check_only = "--check" in args
                 path_args = [a for a in args if not a.startswith("--")]
                 from actions.format_code import run
-                result = run(_get_root(state), check_only=check_only, paths=path_args or None)
+
+                result = run(
+                    _get_root(state), check_only=check_only, paths=path_args or None
+                )
                 _print_result(console, result, "format")
                 # 도구별 상세 출력
                 for tool in ["black", "isort", "flake8"]:
@@ -329,6 +338,7 @@ def run_interactive_session(
                 path_args = [a for a in args if not a.startswith("-")]
                 test_path = path_args[0] if path_args else None
                 from actions.test_runner import run
+
                 result = run(_get_root(state), path=test_path, verbose=verbose)
                 _print_result(console, result, "test")
                 continue
@@ -340,6 +350,7 @@ def run_interactive_session(
                     if idx + 1 < len(args):
                         output_file = args[idx + 1]
                 from actions.todo_collector import run
+
                 result = run(_get_root(state), output_file=output_file)
                 _print_result(console, result, "todo")
                 continue
@@ -351,6 +362,7 @@ def run_interactive_session(
                     if idx + 1 < len(args):
                         severity = args[idx + 1]
                 from actions.security_scan import run
+
                 result = run(_get_root(state), severity_filter=severity)
                 _print_result(console, result, "scan")
                 continue
@@ -358,14 +370,18 @@ def run_interactive_session(
             if cmd == "clean":
                 force = "--force" in args
                 from actions.cleanup import run
+
                 result = run(_get_root(state), dry_run=not force)
                 _print_result(console, result, "clean")
                 if not force:
-                    console.print("[dim]실제 삭제하려면 /clean --force 를 사용하세요.[/dim]")
+                    console.print(
+                        "[dim]실제 삭제하려면 /clean --force 를 사용하세요.[/dim]"
+                    )
                 continue
 
             if cmd == "deps":
                 from actions.deps_check import run
+
                 result = run(_get_root(state))
                 _print_result(console, result, "deps")
                 continue
@@ -377,6 +393,7 @@ def run_interactive_session(
                     if idx + 1 < len(args):
                         output_file = args[idx + 1]
                 from actions.env_template import run
+
                 result = run(_get_root(state), output=output_file)
                 _print_result(console, result, "env")
                 continue
@@ -384,13 +401,14 @@ def run_interactive_session(
             if cmd == "update":
                 check_only = "--check" in args
                 from actions.update import run
+
                 result = run(_get_root(state), check_only=check_only)
                 _print_result(console, result, "update")
                 continue
 
             if cmd == "ask":
-                from locky.core.session import LockySession
                 from locky.agents.ask_agent import AskAgent
+                from locky.core.session import LockySession
 
                 # args 파싱: 파일(.py/.ts 등)과 질문 분리
                 files = [a for a in args if "." in a and not a.startswith("-")]
@@ -409,8 +427,8 @@ def run_interactive_session(
                 continue
 
             if cmd == "edit":
-                from locky.core.session import LockySession
                 from locky.agents.edit_agent import EditAgent
+                from locky.core.session import LockySession
 
                 if len(args) < 2:
                     console.print("[red]사용법: /edit 파일경로 지시사항[/red]")
@@ -422,11 +440,13 @@ def run_interactive_session(
                 agent = EditAgent(locky_session)
                 result = agent.run(instruction, file_path=file_path, dry_run=True)
                 diff_text = result.get("diff") or result.get("message", "")
-                console.print(Panel(
-                    diff_text,
-                    title=f"diff 미리보기 — {result['status']} (적용: locky edit --apply)",
-                    border_style="yellow",
-                ))
+                console.print(
+                    Panel(
+                        diff_text,
+                        title=f"diff 미리보기 — {result['status']} (적용: locky edit --apply)",
+                        border_style="yellow",
+                    )
+                )
                 continue
 
             console.print(

@@ -1,4 +1,5 @@
 """locky_cli/config_loader.py — .locky/config.yaml 파서 및 설정 병합 (v1.1.0)"""
+
 from __future__ import annotations
 
 import os
@@ -29,6 +30,7 @@ def load_config(root: Path) -> dict[str, Any]:
         return {}
     try:
         import yaml  # type: ignore
+
         content = path.read_text(encoding="utf-8")
         data = yaml.safe_load(content)
         return data if isinstance(data, dict) else {}

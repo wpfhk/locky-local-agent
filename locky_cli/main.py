@@ -26,10 +26,13 @@ def _maybe_refresh_profile(root: Path) -> None:
     """auto_profile 설정이 True이면 백그라운드에서 언어 프로파일을 갱신합니다."""
     try:
         from locky_cli.config_loader import get_auto_profile
+
         if not get_auto_profile(root):
             return
-        from locky_cli.context import detect_and_save
         import threading
+
+        from locky_cli.context import detect_and_save
+
         threading.Thread(target=detect_and_save, args=(root,), daemon=True).start()
     except Exception:
         pass
@@ -92,7 +95,8 @@ def cli(ctx: click.Context) -> None:
 @click.option("--dry-run", is_flag=True, help="메시지만 생성하고 커밋하지 않음.")
 @click.option("--push", is_flag=True, help="커밋 후 push까지 수행.")
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -114,20 +118,24 @@ def commit_cmd(dry_run: bool, push: bool, workspace_dir: Path | None) -> None:
 @cli.command("format")
 @click.option("--check", is_flag=True, help="수정하지 않고 검사만 수행.")
 @click.option(
-    "--lang", "-l",
+    "--lang",
+    "-l",
     default="auto",
     show_default=True,
     help="사용할 언어 (auto/python/javascript/typescript/go/rust 등).",
 )
 @click.argument("paths", nargs=-1)
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
     help="워크스페이스 루트(기본: 현재 디렉터리).",
 )
-def format_cmd(check: bool, lang: str, paths: tuple, workspace_dir: Path | None) -> None:
+def format_cmd(
+    check: bool, lang: str, paths: tuple, workspace_dir: Path | None
+) -> None:
     """black/isort/flake8 또는 언어별 포맷터를 실행합니다."""
     from actions.format_code import run
 
@@ -144,7 +152,9 @@ def format_cmd(check: bool, lang: str, paths: tuple, workspace_dir: Path | None)
 
     # 결과에서 도구 항목만 추출 (status, language 키 제외)
     _skip = {"status", "language"}
-    tool_names = [k for k, v in result.items() if k not in _skip and isinstance(v, dict)]
+    tool_names = [
+        k for k, v in result.items() if k not in _skip and isinstance(v, dict)
+    ]
 
     table = Table(title=f"포맷 결과 [{lang}]", show_header=True)
     table.add_column("도구", style="cyan")
@@ -155,7 +165,11 @@ def format_cmd(check: bool, lang: str, paths: tuple, workspace_dir: Path | None)
         tool_result = result.get(tool, {})
         tool_status = tool_result.get("status", "unknown")
         tool_output = (tool_result.get("output", "") or "")[:120]
-        t_color = "green" if tool_status == "ok" else ("dim" if tool_status == "not_installed" else "red")
+        t_color = (
+            "green"
+            if tool_status == "ok"
+            else ("dim" if tool_status == "not_installed" else "red")
+        )
         table.add_row(tool, f"[{t_color}]{tool_status}[/{t_color}]", tool_output)
 
     console.print(table)
@@ -166,7 +180,8 @@ def format_cmd(check: bool, lang: str, paths: tuple, workspace_dir: Path | None)
 @click.argument("path", required=False, default=None)
 @click.option("-v", "--verbose", is_flag=True, help="상세 출력.")
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -184,7 +199,9 @@ def test_cmd(path: str | None, verbose: bool, workspace_dir: Path | None) -> Non
     status = result.get("status", "error")
     color = "green" if status == "pass" else "red"
 
-    table = Table(title=f"테스트 결과 — [{color}]{status.upper()}[/{color}]", show_header=True)
+    table = Table(
+        title=f"테스트 결과 — [{color}]{status.upper()}[/{color}]", show_header=True
+    )
     table.add_column("항목", style="cyan")
     table.add_column("값")
 
@@ -204,7 +221,8 @@ def test_cmd(path: str | None, verbose: bool, workspace_dir: Path | None) -> Non
 @cli.command("todo")
 @click.option("--output", "-o", default=None, help="결과를 저장할 마크다운 파일.")
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -243,13 +261,15 @@ def todo_cmd(output: str | None, workspace_dir: Path | None) -> None:
 
 @cli.command("scan")
 @click.option(
-    "--severity", "-s",
+    "--severity",
+    "-s",
     default=None,
     type=click.Choice(["critical", "high", "medium", "low"], case_sensitive=False),
     help="심각도 필터.",
 )
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -270,12 +290,19 @@ def scan_cmd(severity: str | None, workspace_dir: Path | None) -> None:
     issues = result.get("issues", [])
 
     # 요약 테이블
-    sum_table = Table(title=f"보안 스캔 — [{color}]{status}[/{color}]", show_header=True)
+    sum_table = Table(
+        title=f"보안 스캔 — [{color}]{status}[/{color}]", show_header=True
+    )
     sum_table.add_column("심각도", style="cyan")
     sum_table.add_column("건수")
     for sev in ["critical", "high", "medium", "low"]:
         cnt = summary.get(sev, 0)
-        sev_color = {"critical": "red", "high": "orange3", "medium": "yellow", "low": "dim"}.get(sev, "white")
+        sev_color = {
+            "critical": "red",
+            "high": "orange3",
+            "medium": "yellow",
+            "low": "dim",
+        }.get(sev, "white")
         sum_table.add_row(f"[{sev_color}]{sev}[/{sev_color}]", str(cnt))
     console.print(sum_table)
 
@@ -286,7 +313,12 @@ def scan_cmd(severity: str | None, workspace_dir: Path | None) -> None:
         issue_table.add_column("설명")
         for issue in issues[:30]:
             sev = issue.get("severity", "low")
-            sev_color = {"critical": "red", "high": "orange3", "medium": "yellow", "low": "dim"}.get(sev, "white")
+            sev_color = {
+                "critical": "red",
+                "high": "orange3",
+                "medium": "yellow",
+                "low": "dim",
+            }.get(sev, "white")
             issue_table.add_row(
                 f"[{sev_color}]{sev}[/{sev_color}]",
                 f"{issue.get('file', '')}:{issue.get('line', '')}",
@@ -301,7 +333,8 @@ def scan_cmd(severity: str | None, workspace_dir: Path | None) -> None:
 @cli.command("clean")
 @click.option("--force", is_flag=True, help="실제 삭제 수행 (기본은 dry-run).")
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -316,14 +349,19 @@ def clean_cmd(force: bool, workspace_dir: Path | None) -> None:
     dry_run = not force
     console.print(f"[dim]루트:[/dim] {root}")
     if dry_run:
-        console.print("[yellow]dry-run 모드:[/yellow] 실제 삭제하려면 --force를 사용하세요.")
+        console.print(
+            "[yellow]dry-run 모드:[/yellow] 실제 삭제하려면 --force를 사용하세요."
+        )
 
     result = run(root, dry_run=dry_run)
     removed = result.get("removed", [])
     total_size = result.get("total_size_bytes", 0)
     action = "삭제 예정" if dry_run else "삭제됨"
 
-    table = Table(title=f"정리 대상 — {len(removed)}개 ({_human_size(total_size)})", show_header=True)
+    table = Table(
+        title=f"정리 대상 — {len(removed)}개 ({_human_size(total_size)})",
+        show_header=True,
+    )
     table.add_column(action, style="cyan")
     for path in removed[:40]:
         table.add_row(path)
@@ -335,7 +373,8 @@ def clean_cmd(force: bool, workspace_dir: Path | None) -> None:
 
 @cli.command("deps")
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -351,7 +390,9 @@ def deps_cmd(workspace_dir: Path | None) -> None:
 
     result = run(root)
     if result.get("status") == "error":
-        console.print(Panel(result.get("message", "오류"), title="오류", border_style="red"))
+        console.print(
+            Panel(result.get("message", "오류"), title="오류", border_style="red")
+        )
         return
 
     packages = result.get("packages", [])
@@ -378,9 +419,12 @@ def deps_cmd(workspace_dir: Path | None) -> None:
 
 
 @cli.command("env")
-@click.option("--output", "-o", default=".env.example", help="출력 파일명 (기본: .env.example).")
 @click.option(
-    "--workspace", "-w",
+    "--output", "-o", default=".env.example", help="출력 파일명 (기본: .env.example)."
+)
+@click.option(
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -415,10 +459,17 @@ def env_cmd(output: str, workspace_dir: Path | None) -> None:
 
 @cli.command("run")
 @click.argument("steps", nargs=-1, required=True)
-@click.option("--no-fail-fast", "fail_fast", is_flag=True, default=True, flag_value=False,
-              help="실패해도 나머지 단계를 계속 실행합니다.")
 @click.option(
-    "--workspace", "-w",
+    "--no-fail-fast",
+    "fail_fast",
+    is_flag=True,
+    default=True,
+    flag_value=False,
+    help="실패해도 나머지 단계를 계속 실행합니다.",
+)
+@click.option(
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -437,10 +488,15 @@ def run_cmd(steps: tuple, fail_fast: bool, workspace_dir: Path | None) -> None:
     result = run(root, steps=steps_str, fail_fast=fail_fast)
 
     if result.get("status") == "error" and not result.get("results"):
-        console.print(Panel(result.get("message", "오류"), title="오류", border_style="red"))
+        console.print(
+            Panel(result.get("message", "오류"), title="오류", border_style="red")
+        )
         return
 
-    table = Table(title=f"파이프라인 결과 — {result['executed']}/{result['total']} 단계", show_header=True)
+    table = Table(
+        title=f"파이프라인 결과 — {result['executed']}/{result['total']} 단계",
+        show_header=True,
+    )
     table.add_column("단계", style="cyan", width=12)
     table.add_column("상태")
     table.add_column("메시지")
@@ -453,7 +509,9 @@ def run_cmd(steps: tuple, fail_fast: bool, workspace_dir: Path | None) -> None:
             msg = msg[:80]
         else:
             msg = ""
-        s_color = "green" if s in ("ok", "pass", "clean", "nothing_to_commit") else "red"
+        s_color = (
+            "green" if s in ("ok", "pass", "clean", "nothing_to_commit") else "red"
+        )
         table.add_row(step, f"[{s_color}]{s}[/{s_color}]", msg)
 
     console.print(table)
@@ -464,15 +522,19 @@ def run_cmd(steps: tuple, fail_fast: bool, workspace_dir: Path | None) -> None:
 
 
 @cli.command("hook")
-@click.argument("action", type=click.Choice(["install", "uninstall", "status"]), default="install")
+@click.argument(
+    "action", type=click.Choice(["install", "uninstall", "status"]), default="install"
+)
 @click.option(
-    "--steps", "-s",
+    "--steps",
+    "-s",
     default="format,test,scan",
     show_default=True,
     help="실행할 단계(쉼표 구분): format, test, scan",
 )
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -493,10 +555,15 @@ def hook_cmd(action: str, steps: str, workspace_dir: Path | None) -> None:
 
 
 @cli.command("init")
-@click.option("--hook/--no-hook", "install_hook", default=None,
-              help="pre-commit 훅 설치 여부 (생략 시 대화형 확인).")
 @click.option(
-    "--workspace", "-w",
+    "--hook/--no-hook",
+    "install_hook",
+    default=None,
+    help="pre-commit 훅 설치 여부 (생략 시 대화형 확인).",
+)
+@click.option(
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -505,8 +572,9 @@ def hook_cmd(action: str, steps: str, workspace_dir: Path | None) -> None:
 def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
     """프로젝트를 초기화합니다 (.locky/config.yaml 생성, hook 설치)."""
     import yaml  # type: ignore
-    from locky_cli.context import detect_and_save
+
     from actions.hook import run as hook_run
+    from locky_cli.context import detect_and_save
 
     console = Console()
     root = _get_root(workspace_dir)
@@ -544,7 +612,9 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
         "hook": {"steps": hook_steps},
         "init": {"auto_profile": True},
     }
-    config_path.write_text(yaml.dump(config_data, allow_unicode=True, default_flow_style=False))
+    config_path.write_text(
+        yaml.dump(config_data, allow_unicode=True, default_flow_style=False)
+    )
     console.print(f"\n[green]✓[/green] .locky/config.yaml 생성 완료")
 
     # 5. 프로젝트 컨텍스트 감지 및 저장
@@ -552,7 +622,9 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
     try:
         profile = detect_and_save(root)
         lang = profile.get("language", {}).get("primary", "unknown")
-        console.print(f"[green]✓[/green] 언어 감지: [bold]{lang}[/bold]  (.locky/profile.json 저장)")
+        console.print(
+            f"[green]✓[/green] 언어 감지: [bold]{lang}[/bold]  (.locky/profile.json 저장)"
+        )
     except Exception:
         console.print("[dim]프로파일 감지 생략[/dim]")
 
@@ -561,11 +633,17 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
         hook_result = hook_run(root, action="install", steps=hook_steps)
         hook_status = hook_result.get("status", "error")
         if hook_status == "ok":
-            console.print(f"[green]✓[/green] pre-commit 훅 설치 완료 ({' → '.join(hook_steps)})")
+            console.print(
+                f"[green]✓[/green] pre-commit 훅 설치 완료 ({' → '.join(hook_steps)})"
+            )
         else:
-            console.print(f"[yellow]![/yellow] 훅 설치: {hook_result.get('message', hook_status)}")
+            console.print(
+                f"[yellow]![/yellow] 훅 설치: {hook_result.get('message', hook_status)}"
+            )
 
-    console.print("\n[bold green]초기화 완료![/bold green] `locky --help`로 사용법을 확인하세요.")
+    console.print(
+        "\n[bold green]초기화 완료![/bold green] `locky --help`로 사용법을 확인하세요."
+    )
 
 
 @cli.command("update")
@@ -588,21 +666,44 @@ def jira_grp() -> None:
 
 @jira_grp.command("list")
 @click.option("--project", "-p", default="", help="Jira 프로젝트 키 (예: MYPROJ).")
-@click.option("--status", "-s", "status_filter", default="", help="이슈 상태 필터 (예: 'In Progress').")
+@click.option(
+    "--status",
+    "-s",
+    "status_filter",
+    default="",
+    help="이슈 상태 필터 (예: 'In Progress').",
+)
 @click.option("--assignee", "-a", default="", help="담당자 필터 (현재 사용자: me).")
-@click.option("--max", "max_results", default=50, show_default=True, type=int, help="최대 조회 건수.")
-@click.option("--output", "-o", default=None, help="저장 경로 지정 (기본: .locky/jira/{date}-{project}.md).")
+@click.option(
+    "--max",
+    "max_results",
+    default=50,
+    show_default=True,
+    type=int,
+    help="최대 조회 건수.",
+)
+@click.option(
+    "--output",
+    "-o",
+    default=None,
+    help="저장 경로 지정 (기본: .locky/jira/{date}-{project}.md).",
+)
 @click.option("--no-save", is_flag=True, help=".md 저장 없이 터미널 출력만.")
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
     help="워크스페이스 루트(기본: 현재 디렉터리).",
 )
 def jira_list_cmd(
-    project: str, status_filter: str, assignee: str,
-    max_results: int, output: str | None, no_save: bool,
+    project: str,
+    status_filter: str,
+    assignee: str,
+    max_results: int,
+    output: str | None,
+    no_save: bool,
     workspace_dir: Path | None,
 ) -> None:
     """Jira 이슈를 조회하고 .md 파일로 저장합니다."""
@@ -622,7 +723,11 @@ def jira_list_cmd(
 
     if result.get("status") == "error":
         console.print(
-            Panel(result.get("message", "오류"), title="[bold]locky jira list[/bold]", border_style="red")
+            Panel(
+                result.get("message", "오류"),
+                title="[bold]locky jira list[/bold]",
+                border_style="red",
+            )
         )
         return
 
@@ -650,23 +755,39 @@ def jira_list_cmd(
 @click.option("--project", "-p", required=True, help="Jira 프로젝트 키.")
 @click.option("--summary", required=True, help="이슈 제목.")
 @click.option("--description", "-d", "description", default="", help="이슈 설명.")
-@click.option("--type", "issue_type", default="Task", show_default=True,
-              type=click.Choice(["Bug", "Story", "Task", "Epic"], case_sensitive=False),
-              help="이슈 타입.")
-@click.option("--priority", default="Medium", show_default=True,
-              type=click.Choice(["Highest", "High", "Medium", "Low", "Lowest"], case_sensitive=False),
-              help="우선순위.")
+@click.option(
+    "--type",
+    "issue_type",
+    default="Task",
+    show_default=True,
+    type=click.Choice(["Bug", "Story", "Task", "Epic"], case_sensitive=False),
+    help="이슈 타입.",
+)
+@click.option(
+    "--priority",
+    default="Medium",
+    show_default=True,
+    type=click.Choice(
+        ["Highest", "High", "Medium", "Low", "Lowest"], case_sensitive=False
+    ),
+    help="우선순위.",
+)
 @click.option("--dry-run", is_flag=True, help="실제 생성 없이 페이로드만 출력.")
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
     help="워크스페이스 루트(기본: 현재 디렉터리).",
 )
 def jira_create_cmd(
-    project: str, summary: str, description: str,
-    issue_type: str, priority: str, dry_run: bool,
+    project: str,
+    summary: str,
+    description: str,
+    issue_type: str,
+    priority: str,
+    dry_run: bool,
     workspace_dir: Path | None,
 ) -> None:
     """새 Jira 이슈를 생성합니다."""
@@ -688,7 +809,8 @@ def jira_create_cmd(
 
 @jira_grp.command("status")
 @click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -705,7 +827,8 @@ def jira_status_cmd(workspace_dir: Path | None) -> None:
 
 
 _WORKSPACE_OPTION = click.option(
-    "--workspace", "-w",
+    "--workspace",
+    "-w",
     "workspace_dir",
     type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
     default=None,
@@ -719,8 +842,8 @@ _WORKSPACE_OPTION = click.option(
 @_WORKSPACE_OPTION
 def ask_cmd(question: str, files: tuple, workspace_dir: Path | None) -> None:
     """AI에게 코드에 대해 질문합니다."""
-    from locky.core.session import LockySession
     from locky.agents.ask_agent import AskAgent
+    from locky.core.session import LockySession
 
     console = Console()
     root = _get_root(workspace_dir)
@@ -738,10 +861,12 @@ def ask_cmd(question: str, files: tuple, workspace_dir: Path | None) -> None:
 @click.argument("file")
 @click.option("--dry-run/--apply", default=True, help="미리보기(기본) 또는 실제 적용.")
 @_WORKSPACE_OPTION
-def edit_cmd(instruction: str, file: str, dry_run: bool, workspace_dir: Path | None) -> None:
+def edit_cmd(
+    instruction: str, file: str, dry_run: bool, workspace_dir: Path | None
+) -> None:
     """AI를 사용해 코드를 편집합니다."""
-    from locky.core.session import LockySession
     from locky.agents.edit_agent import EditAgent
+    from locky.core.session import LockySession
 
     console = Console()
     root = _get_root(workspace_dir)
@@ -758,12 +883,12 @@ def edit_cmd(instruction: str, file: str, dry_run: bool, workspace_dir: Path | N
 @_WORKSPACE_OPTION
 def agent_cmd(task: str, max_iter: int, workspace_dir: Path | None) -> None:
     """Agent Loop로 복합 태스크를 실행합니다."""
-    from locky.core.session import LockySession
     from locky.core.agent import BaseAgent
-    from locky.tools.format import FormatTool
-    from locky.tools.test import TestTool
-    from locky.tools.git import GitTool
+    from locky.core.session import LockySession
     from locky.tools.file import FileTool
+    from locky.tools.format import FormatTool
+    from locky.tools.git import GitTool
+    from locky.tools.test import TestTool
 
     console = Console()
     root = _get_root(workspace_dir)
@@ -775,12 +900,16 @@ def agent_cmd(task: str, max_iter: int, workspace_dir: Path | None) -> None:
     with console.status(f"Agent 실행 중 (최대 {max_iter}회)..."):
         result = agent.run(task)
 
-    _print_result(console, {
-        "status": result.status,
-        "message": result.output,
-        "iterations": result.iterations,
-        "verified": result.verified,
-    }, "locky agent")
+    _print_result(
+        console,
+        {
+            "status": result.status,
+            "message": result.output,
+            "iterations": result.iterations,
+            "verified": result.verified,
+        },
+        "locky agent",
+    )
 
 
 @cli.group("plugin")
