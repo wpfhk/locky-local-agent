@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from locky.core.context import ContextCollector
 from locky.core.session import LockySession
 
@@ -15,12 +16,16 @@ class AskAgent:
         collector = ContextCollector(root)
         ctx = collector.collect(files=files or [])
 
-        from tools.ollama_guard import ensure_ollama
         from config import OLLAMA_BASE_URL, OLLAMA_MODEL
+        from tools.ollama_guard import ensure_ollama
+
         if not ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL):
-            return "Ollama 서버를 시작할 수 없습니다. `ollama serve` 실행 후 재시도하세요."
+            return (
+                "Ollama 서버를 시작할 수 없습니다. `ollama serve` 실행 후 재시도하세요."
+            )
 
         from tools.ollama_client import OllamaClient
+
         client = OllamaClient()
 
         system = (
@@ -32,8 +37,9 @@ class AskAgent:
 
         answer = client.chat([{"role": "user", "content": prompt}], system=system)
 
-        self.session.add_history({"type": "ask", "question": question[:100],
-                                  "files": files or []})
+        self.session.add_history(
+            {"type": "ask", "question": question[:100], "files": files or []}
+        )
         return answer
 
     def stream(self, question: str, files: list[str] | None = None):
@@ -42,15 +48,19 @@ class AskAgent:
         collector = ContextCollector(root)
         ctx = collector.collect(files=files or [])
 
-        from tools.ollama_guard import ensure_ollama
         from config import OLLAMA_BASE_URL, OLLAMA_MODEL
+        from tools.ollama_guard import ensure_ollama
+
         if not ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL):
             yield "Ollama 서버를 시작할 수 없습니다."
             return
 
         from tools.ollama_client import OllamaClient
+
         client = OllamaClient()
-        system = "당신은 친절한 코드 어시스턴트입니다. 코드 변경 없이 질문에 답변하세요."
+        system = (
+            "당신은 친절한 코드 어시스턴트입니다. 코드 변경 없이 질문에 답변하세요."
+        )
         prompt = f"{ctx.to_prompt_context()}\n\n질문: {question}"
 
         yield from client.stream([{"role": "user", "content": prompt}], system=system)

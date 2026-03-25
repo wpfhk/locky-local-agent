@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import re
 from pathlib import Path
+
 from locky.tools import BaseTool, ToolResult
 
 
@@ -14,7 +16,9 @@ class FileTool(BaseTool):
         elif action == "write":
             return self._write(root, opts.get("path", ""), opts.get("content", ""))
         elif action == "search":
-            return self._search(root, opts.get("pattern", ""), opts.get("glob", "**/*.py"))
+            return self._search(
+                root, opts.get("pattern", ""), opts.get("glob", "**/*.py")
+            )
         return ToolResult(status="error", message=f"알 수 없는 action: {action}")
 
     def _read(self, root: Path, rel_path: str) -> ToolResult:
@@ -24,8 +28,11 @@ class FileTool(BaseTool):
         if not path.exists():
             return ToolResult(status="error", message=f"파일 없음: {rel_path}")
         content = path.read_text(encoding="utf-8", errors="replace")
-        return ToolResult(status="ok", message=content[:5000],
-                          data={"content": content, "path": str(path)})
+        return ToolResult(
+            status="ok",
+            message=content[:5000],
+            data={"content": content, "path": str(path)},
+        )
 
     def _write(self, root: Path, rel_path: str, content: str) -> ToolResult:
         path = (root / rel_path).resolve()
@@ -33,7 +40,9 @@ class FileTool(BaseTool):
             return ToolResult(status="error", message="경로 접근 거부")
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-        return ToolResult(status="ok", message=f"저장: {rel_path}", data={"path": str(path)})
+        return ToolResult(
+            status="ok", message=f"저장: {rel_path}", data={"path": str(path)}
+        )
 
     def _search(self, root: Path, pattern: str, glob: str) -> ToolResult:
         matches = []
@@ -49,4 +58,6 @@ class FileTool(BaseTool):
                             break
             except Exception:
                 continue
-        return ToolResult(status="ok", message="\n".join(matches), data={"matches": matches})
+        return ToolResult(
+            status="ok", message="\n".join(matches), data={"matches": matches}
+        )

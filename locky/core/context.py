@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -7,6 +8,7 @@ from pathlib import Path
 @dataclass
 class ProjectContext:
     """수집된 프로젝트 컨텍스트."""
+
     git_diff: str = ""
     git_status: str = ""
     test_output: str = ""
@@ -49,7 +51,9 @@ class ContextCollector:
             for f in files:
                 path = self.root / f
                 if path.exists():
-                    ctx.file_contents[f] = path.read_text(encoding="utf-8", errors="replace")
+                    ctx.file_contents[f] = path.read_text(
+                        encoding="utf-8", errors="replace"
+                    )
         return ctx
 
     def collect_test_context(self) -> ProjectContext:
@@ -61,19 +65,35 @@ class ContextCollector:
         return ctx
 
     def _git_diff(self) -> str:
-        result = subprocess.run(["git", "diff", "--stat"], cwd=self.root,
-                                capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            ["git", "diff", "--stat"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
         return result.stdout if result.returncode == 0 else ""
 
     def _git_status(self) -> str:
-        result = subprocess.run(["git", "status", "--short"], cwd=self.root,
-                                capture_output=True, text=True, timeout=10)
+        result = subprocess.run(
+            ["git", "status", "--short"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
         return result.stdout if result.returncode == 0 else ""
 
     def _run_tests_dry(self) -> str:
         import sys
-        result = subprocess.run([sys.executable, "-m", "pytest", "--tb=short", "-q"],
-                                cwd=self.root, capture_output=True, text=True, timeout=60)
+
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "--tb=short", "-q"],
+            cwd=self.root,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
         return result.stdout + result.stderr
 
     def _parse_failing_files(self, test_output: str) -> list[str]:

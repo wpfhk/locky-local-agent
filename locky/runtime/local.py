@@ -1,13 +1,15 @@
 from __future__ import annotations
+
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
-import time
 
 
 @dataclass
 class RunResult:
     """subprocess 실행 결과."""
+
     stdout: str
     stderr: str
     returncode: int
@@ -31,13 +33,16 @@ class LocalRuntime:
 
         if isinstance(cmd, str):
             result = subprocess.run(
-                cmd, shell=True, cwd=self.cwd,
-                capture_output=True, text=True, timeout=self.timeout
+                cmd,
+                shell=True,
+                cwd=self.cwd,
+                capture_output=True,
+                text=True,
+                timeout=self.timeout,
             )
         else:
             result = subprocess.run(
-                cmd, cwd=self.cwd,
-                capture_output=True, text=True, timeout=self.timeout
+                cmd, cwd=self.cwd, capture_output=True, text=True, timeout=self.timeout
             )
 
         return RunResult(

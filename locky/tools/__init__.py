@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -6,7 +7,8 @@ from pathlib import Path
 @dataclass
 class ToolResult:
     """Tool 실행 결과 — actions/ dict 결과와 호환."""
-    status: str          # "ok" | "error" | "nothing_to_commit" 등
+
+    status: str  # "ok" | "error" | "nothing_to_commit" 등
     message: str = ""
     data: dict = None
 
@@ -30,6 +32,7 @@ class ToolResult:
 
 class BaseTool:
     """Tool 기반 클래스. 모든 Tool은 이를 상속."""
+
     name: str = ""
     description: str = ""
 

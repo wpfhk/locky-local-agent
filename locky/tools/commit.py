@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from locky.tools import BaseTool, ToolResult
 
 
@@ -8,4 +9,5 @@ class CommitTool(BaseTool):
 
     def run(self, root: Path, **opts) -> ToolResult:
         from actions.commit import run  # delegation
+
         return ToolResult.from_dict(run(root, **opts))

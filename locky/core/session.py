@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -17,7 +18,10 @@ class LockySession:
     def __post_init__(self):
         if not self.session_id:
             import uuid
-            self.session_id = f"{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8]}"
+
+            self.session_id = (
+                f"{datetime.now().strftime('%Y%m%d')}-{uuid.uuid4().hex[:8]}"
+            )
 
     @classmethod
     def load(cls, workspace: Path) -> LockySession:
@@ -40,12 +44,18 @@ class LockySession:
         """세션 상태를 .locky/session.json에 저장."""
         session_file = self.workspace / ".locky" / "session.json"
         session_file.parent.mkdir(parents=True, exist_ok=True)
-        session_file.write_text(json.dumps({
-            "session_id": self.session_id,
-            "workspace": str(self.workspace),
-            "history": self.history[-50:],  # 최근 50개만 보존
-            "profile": self.profile,
-        }, ensure_ascii=False, indent=2))
+        session_file.write_text(
+            json.dumps(
+                {
+                    "session_id": self.session_id,
+                    "workspace": str(self.workspace),
+                    "history": self.history[-50:],  # 최근 50개만 보존
+                    "profile": self.profile,
+                },
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
 
     def add_history(self, entry: dict) -> None:
         """히스토리에 항목 추가 (timestamp 자동 포함)."""
