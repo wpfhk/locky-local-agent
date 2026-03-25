@@ -162,6 +162,8 @@ help_text = (
     "/deps                         — 의존성 버전 확인\n"
     "/env [--output FILE]          — .env.example 생성\n"
     "/update [--check]             — locky 최신 버전으로 업데이트\n"
+    "/ask 질문 [파일...]           — AI에게 코드 질문\n"
+    "/edit 파일경로 지시사항       — AI 코드 편집 (미리보기)\n"
     "/clear                        — 화면 초기화\n"
     "/help                         — 도움말\n"
     "/exit 또는 /quit              — 종료\n\n"
@@ -386,9 +388,50 @@ def run_interactive_session(
                 _print_result(console, result, "update")
                 continue
 
+            if cmd == "ask":
+                from locky.core.session import LockySession
+                from locky.agents.ask_agent import AskAgent
+
+                # args 파싱: 파일(.py/.ts 등)과 질문 분리
+                files = [a for a in args if "." in a and not a.startswith("-")]
+                question_parts = [a for a in args if a not in files]
+                question = " ".join(question_parts).strip()
+
+                if not question:
+                    console.print("[red]사용법: /ask 질문 [파일...][/red]")
+                    continue
+
+                locky_session = LockySession.load(_get_root(state))
+                agent = AskAgent(locky_session)
+                console.print("[dim]AI가 답변 중...[/dim]")
+                answer = agent.run(question, files=files or None)
+                console.print(Panel(answer, title="AI 답변", border_style="cyan"))
+                continue
+
+            if cmd == "edit":
+                from locky.core.session import LockySession
+                from locky.agents.edit_agent import EditAgent
+
+                if len(args) < 2:
+                    console.print("[red]사용법: /edit 파일경로 지시사항[/red]")
+                    continue
+
+                file_path = args[0]
+                instruction = " ".join(args[1:])
+                locky_session = LockySession.load(_get_root(state))
+                agent = EditAgent(locky_session)
+                result = agent.run(instruction, file_path=file_path, dry_run=True)
+                diff_text = result.get("diff") or result.get("message", "")
+                console.print(Panel(
+                    diff_text,
+                    title=f"diff 미리보기 — {result['status']} (적용: locky edit --apply)",
+                    border_style="yellow",
+                ))
+                continue
+
             console.print(
                 f"[red]알 수 없는 명령:[/red] /{cmd}\n"
-                "[dim]지원하는 명령: /commit /format /test /todo /scan /clean /deps /env /help[/dim]"
+                "[dim]지원하는 명령: /commit /format /test /todo /scan /clean /deps /env /ask /edit /help[/dim]"
             )
             continue
 

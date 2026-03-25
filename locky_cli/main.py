@@ -581,6 +581,208 @@ def update_cmd(check: bool) -> None:
     _print_result(console, result, "locky update")
 
 
+@cli.group("jira")
+def jira_grp() -> None:
+    """Jira 이슈를 관리합니다."""
+
+
+@jira_grp.command("list")
+@click.option("--project", "-p", default="", help="Jira 프로젝트 키 (예: MYPROJ).")
+@click.option("--status", "-s", "status_filter", default="", help="이슈 상태 필터 (예: 'In Progress').")
+@click.option("--assignee", "-a", default="", help="담당자 필터 (현재 사용자: me).")
+@click.option("--max", "max_results", default=50, show_default=True, type=int, help="최대 조회 건수.")
+@click.option("--output", "-o", default=None, help="저장 경로 지정 (기본: .locky/jira/{date}-{project}.md).")
+@click.option("--no-save", is_flag=True, help=".md 저장 없이 터미널 출력만.")
+@click.option(
+    "--workspace", "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def jira_list_cmd(
+    project: str, status_filter: str, assignee: str,
+    max_results: int, output: str | None, no_save: bool,
+    workspace_dir: Path | None,
+) -> None:
+    """Jira 이슈를 조회하고 .md 파일로 저장합니다."""
+    from actions.jira import run_list
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    result = run_list(
+        root,
+        project=project,
+        status_filter=status_filter,
+        assignee=assignee,
+        max_results=max_results,
+        output_file=output,
+        no_save=no_save,
+    )
+
+    if result.get("status") == "error":
+        console.print(
+            Panel(result.get("message", "오류"), title="[bold]locky jira list[/bold]", border_style="red")
+        )
+        return
+
+    issues = result.get("issues", [])
+    table = Table(title=f"Jira Issues — {len(issues)}건", show_header=True)
+    table.add_column("KEY", style="cyan", width=12)
+    table.add_column("Summary")
+    table.add_column("Status", width=14)
+    table.add_column("Assignee", width=16)
+
+    for issue in issues:
+        table.add_row(
+            issue.get("key", ""),
+            issue.get("summary", "")[:60],
+            issue.get("status", ""),
+            issue.get("assignee", ""),
+        )
+    console.print(table)
+
+    if result.get("saved_to"):
+        console.print(f"[green]✓[/green] 저장됨: [bold]{result['saved_to']}[/bold]")
+
+
+@jira_grp.command("create")
+@click.option("--project", "-p", required=True, help="Jira 프로젝트 키.")
+@click.option("--summary", required=True, help="이슈 제목.")
+@click.option("--description", "-d", "description", default="", help="이슈 설명.")
+@click.option("--type", "issue_type", default="Task", show_default=True,
+              type=click.Choice(["Bug", "Story", "Task", "Epic"], case_sensitive=False),
+              help="이슈 타입.")
+@click.option("--priority", default="Medium", show_default=True,
+              type=click.Choice(["Highest", "High", "Medium", "Low", "Lowest"], case_sensitive=False),
+              help="우선순위.")
+@click.option("--dry-run", is_flag=True, help="실제 생성 없이 페이로드만 출력.")
+@click.option(
+    "--workspace", "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def jira_create_cmd(
+    project: str, summary: str, description: str,
+    issue_type: str, priority: str, dry_run: bool,
+    workspace_dir: Path | None,
+) -> None:
+    """새 Jira 이슈를 생성합니다."""
+    from actions.jira import run_create
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    result = run_create(
+        root,
+        project=project,
+        summary=summary,
+        description=description,
+        issue_type=issue_type,
+        priority=priority,
+        dry_run=dry_run,
+    )
+    _print_result(console, result, "locky jira create")
+
+
+@jira_grp.command("status")
+@click.option(
+    "--workspace", "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def jira_status_cmd(workspace_dir: Path | None) -> None:
+    """Jira 연결 상태를 확인합니다."""
+    from actions.jira import run_status
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    result = run_status(root)
+    _print_result(console, result, "locky jira status")
+
+
+_WORKSPACE_OPTION = click.option(
+    "--workspace", "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+
+
+@cli.command("ask")
+@click.argument("question")
+@click.argument("files", nargs=-1)
+@_WORKSPACE_OPTION
+def ask_cmd(question: str, files: tuple, workspace_dir: Path | None) -> None:
+    """AI에게 코드에 대해 질문합니다."""
+    from locky.core.session import LockySession
+    from locky.agents.ask_agent import AskAgent
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    session = LockySession.load(root)
+    agent = AskAgent(session)
+
+    with console.status("생각 중..."):
+        answer = agent.run(question, files=list(files))
+
+    console.print(Panel(answer, title="AI 답변", border_style="blue"))
+
+
+@cli.command("edit")
+@click.argument("instruction")
+@click.argument("file")
+@click.option("--dry-run/--apply", default=True, help="미리보기(기본) 또는 실제 적용.")
+@_WORKSPACE_OPTION
+def edit_cmd(instruction: str, file: str, dry_run: bool, workspace_dir: Path | None) -> None:
+    """AI를 사용해 코드를 편집합니다."""
+    from locky.core.session import LockySession
+    from locky.agents.edit_agent import EditAgent
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    session = LockySession.load(root)
+    agent = EditAgent(session)
+
+    result = agent.run(instruction, file_path=file, dry_run=dry_run)
+    _print_result(console, result, "locky edit")
+
+
+@cli.command("agent")
+@click.argument("task")
+@click.option("--max-iter", default=5, show_default=True, help="최대 반복 횟수.")
+@_WORKSPACE_OPTION
+def agent_cmd(task: str, max_iter: int, workspace_dir: Path | None) -> None:
+    """Agent Loop로 복합 태스크를 실행합니다."""
+    from locky.core.session import LockySession
+    from locky.core.agent import BaseAgent
+    from locky.tools.format import FormatTool
+    from locky.tools.test import TestTool
+    from locky.tools.git import GitTool
+    from locky.tools.file import FileTool
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    session = LockySession.load(root)
+
+    tools = [FormatTool(), TestTool(), GitTool(), FileTool()]
+    agent = BaseAgent(session, tools, max_iterations=max_iter)
+
+    with console.status(f"Agent 실행 중 (최대 {max_iter}회)..."):
+        result = agent.run(task)
+
+    _print_result(console, {
+        "status": result.status,
+        "message": result.output,
+        "iterations": result.iterations,
+        "verified": result.verified,
+    }, "locky agent")
+
+
 @cli.group("plugin")
 def plugin_group() -> None:
     """플러그인을 관리합니다."""
