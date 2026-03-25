@@ -72,8 +72,8 @@ class EditAgent:
             f"지시사항: {instruction}"
         )
 
-        response = client.chat(
-            [{"role": "user", "content": prompt}], system=DIFF_SYSTEM
+        response = "".join(
+            client.stream([{"role": "user", "content": prompt}], system=DIFF_SYSTEM)
         )
         diff = self._extract_diff(response)
 
