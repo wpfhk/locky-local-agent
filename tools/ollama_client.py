@@ -87,6 +87,24 @@ class OllamaClient:
                     if chunk.get("done", False):
                         break
 
+    def stream(self, messages: list, system: str = ""):
+        """스트리밍 채팅. 토큰별 동기 제너레이터."""
+        import json
+        payload = {"model": self.model, "messages": messages, "stream": True}
+        if system:
+            payload["system"] = system
+
+        with httpx.Client(timeout=self.timeout) as client:
+            with client.stream("POST", f"{self.base_url}/api/chat", json=payload) as resp:
+                resp.raise_for_status()
+                for line in resp.iter_lines():
+                    if line:
+                        data = json.loads(line)
+                        if token := data.get("message", {}).get("content", ""):
+                            yield token
+                        if data.get("done"):
+                            break
+
     def health_check(self) -> bool:
         """
         Ollama 서버 상태 확인.
