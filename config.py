@@ -33,5 +33,10 @@ def get_mcp_filesystem_root() -> str:
     return str(get_filesystem_root())
 
 
+# Jira 설정
+JIRA_BASE_URL = _cfg("JIRA_BASE_URL", ["jira", "base_url"], "")
+JIRA_EMAIL = _cfg("JIRA_EMAIL", ["jira", "email"], "")
+# JIRA_API_TOKEN: 환경변수 전용 (config.yaml에 저장 금지)
+
 # 파이프라인 설정
 MAX_RETRY_ITERATIONS = int(os.getenv("MAX_RETRY_ITERATIONS", "3"))
