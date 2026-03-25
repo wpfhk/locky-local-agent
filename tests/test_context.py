@@ -1,4 +1,5 @@
 """locky_cli/context.py 단위 테스트."""
+
 from __future__ import annotations
 
 import json
@@ -8,14 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-from locky_cli.context import (
-    _profile_path,
-    detect_and_save,
-    load_profile,
-    save_profile,
-    update_last_run,
-)
-
+from locky_cli.context import (_profile_path, detect_and_save, load_profile,
+                               save_profile, update_last_run)
 
 # ── save_profile / load_profile ───────────────────────────────────────────────
 

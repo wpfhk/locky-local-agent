@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import List, Optional
-
+from typing import List
 
 _ENV_KEY_PATTERN = re.compile(r"^([A-Z_][A-Z0-9_]*)\s*=", re.MULTILINE)
 _GETENV_PATTERN = re.compile(

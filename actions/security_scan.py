@@ -14,18 +14,33 @@ _DANGER_PATTERNS = [
     (r'password\s*=\s*["\']', "critical", "hardcoded_secret", "하드코딩된 패스워드"),
     (r'api_key\s*=\s*["\']', "critical", "hardcoded_secret", "하드코딩된 API 키"),
     (r'secret\s*=\s*["\']', "critical", "hardcoded_secret", "하드코딩된 시크릿"),
-    (r'token\s*=\s*["\'][^${\'"]{8,}', "critical", "hardcoded_secret", "하드코딩된 토큰"),
+    (
+        r'token\s*=\s*["\'][^${\'"]{8,}',
+        "critical",
+        "hardcoded_secret",
+        "하드코딩된 토큰",
+    ),
     # High
-    (r'subprocess.*shell\s*=\s*True', "high", "command_injection", "shell=True 사용 (커맨드 인젝션 위험)"),
-    (r'eval\(', "high", "code_injection", "eval() 사용 (코드 인젝션 위험)"),
-    (r'exec\(', "high", "code_injection", "exec() 사용 (코드 인젝션 위험)"),
+    (
+        r"subprocess.*shell\s*=\s*True",
+        "high",
+        "command_injection",
+        "shell=True 사용 (커맨드 인젝션 위험)",
+    ),
+    (r"eval\(", "high", "code_injection", "eval() 사용 (코드 인젝션 위험)"),
+    (r"exec\(", "high", "code_injection", "exec() 사용 (코드 인젝션 위험)"),
     # Medium
-    (r'http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)', "medium", "insecure_http", "비 localhost HTTP 사용"),
-    (r'import pickle', "medium", "insecure_deserialization", "pickle 역직렬화 위험"),
-    (r'hashlib\.(md5|sha1)\b', "medium", "weak_crypto", "취약한 해시 알고리즘 사용"),
+    (
+        r"http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)",
+        "medium",
+        "insecure_http",
+        "비 localhost HTTP 사용",
+    ),
+    (r"import pickle", "medium", "insecure_deserialization", "pickle 역직렬화 위험"),
+    (r"hashlib\.(md5|sha1)\b", "medium", "weak_crypto", "취약한 해시 알고리즘 사용"),
     # Low
-    (r'#\s*TODO.*security', "low", "security_todo", "보안 관련 TODO 미해결"),
-    (r'verify\s*=\s*False', "low", "ssl_verification_disabled", "SSL 검증 비활성화"),
+    (r"#\s*TODO.*security", "low", "security_todo", "보안 관련 TODO 미해결"),
+    (r"verify\s*=\s*False", "low", "ssl_verification_disabled", "SSL 검증 비활성화"),
 ]
 
 _SEVERITY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3}
@@ -48,8 +63,7 @@ def run(
     root = Path(root).resolve()
 
     py_files = [
-        p for p in root.rglob("*.py")
-        if p.is_file() and not _is_excluded(p, root)
+        p for p in root.rglob("*.py") if p.is_file() and not _is_excluded(p, root)
     ]
 
     all_issues = _scan_patterns([str(f) for f in py_files])
@@ -58,7 +72,8 @@ def run(
     if severity_filter:
         filter_level = _SEVERITY_ORDER.get(severity_filter.lower(), 99)
         all_issues = [
-            i for i in all_issues
+            i
+            for i in all_issues
             if _SEVERITY_ORDER.get(i.get("severity", "low"), 99) <= filter_level
         ]
 
@@ -106,15 +121,17 @@ def _scan_patterns(file_paths: List[str]) -> List[dict]:
                     effective_severity = severity
                     if is_test_file and severity in ("critical", "high"):
                         effective_severity = "medium"
-                    issues.append({
-                        "severity": effective_severity,
-                        "category": category,
-                        "file": file_path,
-                        "line": lineno,
-                        "code_snippet": line.strip()[:200],
-                        "description": description,
-                        "recommendation": _get_recommendation(category),
-                    })
+                    issues.append(
+                        {
+                            "severity": effective_severity,
+                            "category": category,
+                            "file": file_path,
+                            "line": lineno,
+                            "code_snippet": line.strip()[:200],
+                            "description": description,
+                            "recommendation": _get_recommendation(category),
+                        }
+                    )
 
     return issues
 

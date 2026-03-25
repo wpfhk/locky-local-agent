@@ -1,4 +1,5 @@
 """tests/test_deps_check.py — deps_check.py 단위 테스트 (v1.1.0)."""
+
 from __future__ import annotations
 
 import json
@@ -7,16 +8,9 @@ from unittest.mock import patch
 
 import pytest
 
-from actions.deps_check import (
-    _find_dep_file,
-    _is_outdated,
-    _parse_go_mod,
-    _parse_package_json,
-    _parse_pyproject,
-    _parse_requirements,
-    run,
-)
-
+from actions.deps_check import (_find_dep_file, _is_outdated, _parse_go_mod,
+                                _parse_package_json, _parse_pyproject,
+                                _parse_requirements, run)
 
 # ── _find_dep_file ─────────────────────────────────────────────────────────────
 
@@ -111,9 +105,7 @@ def test_parse_pyproject_pep621(tmp_path):
 
 def test_parse_pyproject_poetry(tmp_path):
     f = tmp_path / "pyproject.toml"
-    f.write_text(
-        "[tool.poetry.dependencies]\npython = \"^3.11\"\nrequests = \"^2.28\"\n"
-    )
+    f.write_text('[tool.poetry.dependencies]\npython = "^3.11"\nrequests = "^2.28"\n')
     result = _parse_pyproject(f)
     names = [r[0] for r in result]
     assert "requests" in names
@@ -148,10 +140,12 @@ def test_parse_package_json_dev_dependencies(tmp_path):
 def test_parse_package_json_both_sections(tmp_path):
     f = tmp_path / "package.json"
     f.write_text(
-        json.dumps({
-            "dependencies": {"react": "^18.0.0"},
-            "devDependencies": {"jest": "^29.0.0"},
-        })
+        json.dumps(
+            {
+                "dependencies": {"react": "^18.0.0"},
+                "devDependencies": {"jest": "^29.0.0"},
+            }
+        )
     )
     result = _parse_package_json(f)
     names = [r[0] for r in result]

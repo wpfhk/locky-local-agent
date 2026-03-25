@@ -1,12 +1,13 @@
 """tools/ollama_guard.py 단위 테스트."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tools.ollama_guard import _check_model, _fetch_tags, _try_start_ollama, ensure_ollama
-
+from tools.ollama_guard import (_check_model, _fetch_tags, _try_start_ollama,
+                                ensure_ollama)
 
 # ── _check_model ──────────────────────────────────────────────────────────────
 

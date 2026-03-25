@@ -1,10 +1,10 @@
 """locky_cli/lang_detect.py — git-tracked 파일 확장자 기반 언어 자동 감지. (v0.5.0)"""
+
 from __future__ import annotations
 
 import subprocess
 from collections import Counter
 from pathlib import Path
-
 
 _EXT_TO_LANG: dict[str, str] = {
     ".py": "python",
@@ -35,7 +35,10 @@ def detect(root: Path) -> dict[str, object]:
     try:
         result = subprocess.run(
             ["git", "ls-files"],
-            cwd=root, capture_output=True, text=True, timeout=10,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode == 0:
             files = result.stdout.splitlines()

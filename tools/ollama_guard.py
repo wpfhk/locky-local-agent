@@ -1,4 +1,5 @@
 """tools/ollama_guard.py — Ollama 서버 헬스체크 및 자동 시작. (v1.0.0)"""
+
 from __future__ import annotations
 
 import subprocess
@@ -59,7 +60,8 @@ def ensure_ollama(
 
     return {
         "status": server_status,
-        "message": f"Ollama 정상 (모델: {model})" + (" — 서버를 새로 시작했습니다." if server_status == "started" else ""),
+        "message": f"Ollama 정상 (모델: {model})"
+        + (" — 서버를 새로 시작했습니다." if server_status == "started" else ""),
         "model_available": True,
     }
 
@@ -68,6 +70,7 @@ def _fetch_tags(base_url: str, timeout: int) -> list | None:
     """GET /api/tags 로 설치된 모델 목록을 가져옵니다. 실패 시 None 반환."""
     try:
         import httpx
+
         with httpx.Client(timeout=timeout) as client:
             resp = client.get(f"{base_url.rstrip('/')}/api/tags")
             resp.raise_for_status()
@@ -90,6 +93,7 @@ def _try_start_ollama() -> bool:
     """ollama serve를 백그라운드로 시작합니다. ollama 바이너리가 없으면 False."""
     try:
         import shutil
+
         if not shutil.which("ollama"):
             return False
         subprocess.Popen(

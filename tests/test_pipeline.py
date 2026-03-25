@@ -1,13 +1,13 @@
 """actions/pipeline.py 단위 테스트."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from actions.pipeline import run, _STEP_RUNNERS
-
+from actions.pipeline import _STEP_RUNNERS, run
 
 # ── 입력 검증 ─────────────────────────────────────────────────────────────────
 
@@ -33,8 +33,11 @@ def test_run_unknown_step_returns_error(tmp_path: Path):
 def test_run_step_runners_covers_known_steps(tmp_path: Path):
     """모든 _STEP_RUNNERS 키가 actions 모듈에 해당 함수를 갖는다."""
     import actions
+
     for step, runner_name in _STEP_RUNNERS.items():
-        assert hasattr(actions, runner_name), f"actions.{runner_name} not found for step '{step}'"
+        assert hasattr(
+            actions, runner_name
+        ), f"actions.{runner_name} not found for step '{step}'"
 
 
 # ── 단일 단계 실행 ────────────────────────────────────────────────────────────

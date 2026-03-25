@@ -1,0 +1,13 @@
+[flake8]
+exclude =
+    .venv,
+    venv,
+    __pycache__,
+    .git,
+    .pytest_cache,
+    *.egg-info
+max-line-length = 119
+extend-ignore = E203
+per-file-ignores =
+    tests/*:F401,F841
+    ui/*:E402

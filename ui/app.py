@@ -57,20 +57,20 @@ async def on_message(message: cl.Message) -> None:
     root = Path(cl.user_session.get("mcp_root", os.getcwd()))
 
     if content.startswith("/commit"):
-        args = content[len("/commit"):].strip().split()
+        args = content[len("/commit") :].strip().split()
         dry_run = "--dry-run" in args
         push = "--push" in args
         await _run_action("commit", root, dry_run=dry_run, push=push)
         return
 
     if content.startswith("/format"):
-        args = content[len("/format"):].strip().split()
+        args = content[len("/format") :].strip().split()
         check_only = "--check" in args
         await _run_action("format", root, check_only=check_only)
         return
 
     if content.startswith("/test"):
-        args = content[len("/test"):].strip().split()
+        args = content[len("/test") :].strip().split()
         path_args = [a for a in args if not a.startswith("-")]
         verbose = "-v" in args or "--verbose" in args
         test_path = path_args[0] if path_args else None
@@ -78,7 +78,7 @@ async def on_message(message: cl.Message) -> None:
         return
 
     if content.startswith("/todo"):
-        args = content[len("/todo"):].strip().split()
+        args = content[len("/todo") :].strip().split()
         output_file = None
         if "--output" in args:
             idx = args.index("--output")
@@ -88,7 +88,7 @@ async def on_message(message: cl.Message) -> None:
         return
 
     if content.startswith("/scan"):
-        args = content[len("/scan"):].strip().split()
+        args = content[len("/scan") :].strip().split()
         severity = None
         if "--severity" in args:
             idx = args.index("--severity")
@@ -98,7 +98,7 @@ async def on_message(message: cl.Message) -> None:
         return
 
     if content.startswith("/clean"):
-        args = content[len("/clean"):].strip().split()
+        args = content[len("/clean") :].strip().split()
         force = "--force" in args
         await _run_action("clean", root, dry_run=not force)
         return
@@ -108,7 +108,7 @@ async def on_message(message: cl.Message) -> None:
         return
 
     if content.startswith("/env"):
-        args = content[len("/env"):].strip().split()
+        args = content[len("/env") :].strip().split()
         output_file = ".env.example"
         if "--output" in args:
             idx = args.index("--output")
@@ -144,6 +144,7 @@ async def _run_action(action_name: str, root: Path, **kwargs) -> None:
 
     try:
         import importlib
+
         module = importlib.import_module(module_path)
         func = getattr(module, func_name)
 
@@ -168,7 +169,11 @@ async def _run_action(action_name: str, root: Path, **kwargs) -> None:
 def _format_result_md(action_name: str, result: dict) -> str:
     """결과 dict를 마크다운으로 포맷합니다."""
     status = result.get("status", "unknown")
-    icon = "✅" if status in ("ok", "pass", "clean") else ("⚠️" if status == "nothing_to_commit" else "❌")
+    icon = (
+        "✅"
+        if status in ("ok", "pass", "clean")
+        else ("⚠️" if status == "nothing_to_commit" else "❌")
+    )
 
     lines = [f"## {icon} /{action_name} — `{status}`\n"]
 

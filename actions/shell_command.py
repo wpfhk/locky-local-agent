@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 # 영어 시스템 프롬프트: 한국어보다 기술 명령 출력 신뢰도가 높음
 _SYSTEM_PROMPT = (
     "You are a shell command generator for macOS/Linux/Android development. "
@@ -18,10 +17,21 @@ _SYSTEM_PROMPT = (
 
 # 관련성 높은 확장자 (우선 표시)
 _PRIORITY_EXTS = {
-    ".aab", ".apk", ".ipa",
-    ".py", ".sh", ".js", ".ts",
-    ".zip", ".tar", ".gz", ".jar",
-    ".json", ".yaml", ".yml", ".toml",
+    ".aab",
+    ".apk",
+    ".ipa",
+    ".py",
+    ".sh",
+    ".js",
+    ".ts",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".jar",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
 }
 
 
@@ -85,7 +95,11 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
     root = Path(root).resolve()
 
     if not request:
-        return {"status": "error", "command": "", "message": "요청 내용이 비어있습니다."}
+        return {
+            "status": "error",
+            "command": "",
+            "message": "요청 내용이 비어있습니다.",
+        }
 
     # 디렉토리 컨텍스트 포함 → Ollama가 파일 존재를 인식
     dir_files = _scan_directory(root)
@@ -96,12 +110,14 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
     )
 
     try:
-        from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
         import httpx
+
+        from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
 
         # Ollama 서버 헬스체크 (미기동 시 자동 시작 시도)
         try:
             from tools.ollama_guard import ensure_ollama
+
             ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
         except Exception:
             pass  # guard 실패 시 그대로 진행
@@ -112,9 +128,9 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
             "system": _SYSTEM_PROMPT,
             "stream": False,
             "options": {
-                "temperature": 0,    # 결정론적 출력 (속도 ↑, 정확도 ↑)
-                "num_predict": 80,   # 셸 명령은 짧음 → 불필요한 토큰 차단
-                "top_k": 1,          # greedy decoding
+                "temperature": 0,  # 결정론적 출력 (속도 ↑, 정확도 ↑)
+                "num_predict": 80,  # 셸 명령은 짧음 → 불필요한 토큰 차단
+                "top_k": 1,  # greedy decoding
             },
         }
 
@@ -135,7 +151,11 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
                 "message": f"유효한 셸 명령을 생성하지 못했습니다.\nOllama 응답: {raw_content[:120]}",
             }
 
-        return {"status": "ok", "command": command, "message": f"생성된 명령: {command}"}
+        return {
+            "status": "ok",
+            "command": command,
+            "message": f"생성된 명령: {command}",
+        }
 
     except Exception as exc:
         return {"status": "error", "command": "", "message": f"명령 생성 실패: {exc}"}

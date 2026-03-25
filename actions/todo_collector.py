@@ -6,7 +6,14 @@ import re
 from pathlib import Path
 from typing import List, Optional
 
-_EXCLUDE_DIRS = {".venv", "__pycache__", ".git", "node_modules", ".mypy_cache", ".pytest_cache"}
+_EXCLUDE_DIRS = {
+    ".venv",
+    "__pycache__",
+    ".git",
+    "node_modules",
+    ".mypy_cache",
+    ".pytest_cache",
+}
 _INCLUDE_EXTS = {".py", ".js", ".ts", ".md"}
 _TAG_PATTERN = re.compile(r"#\s*(TODO|FIXME|HACK|XXX)[:\s]*(.*)", re.IGNORECASE)
 
@@ -37,12 +44,14 @@ def run(
                 if match:
                     tag = match.group(1).upper()
                     text = match.group(2).strip()
-                    items.append({
-                        "file": rel_path,
-                        "line": lineno,
-                        "tag": tag,
-                        "text": text,
-                    })
+                    items.append(
+                        {
+                            "file": rel_path,
+                            "line": lineno,
+                            "tag": tag,
+                            "text": text,
+                        }
+                    )
         except Exception:
             continue
 

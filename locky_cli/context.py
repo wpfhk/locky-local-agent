@@ -1,4 +1,5 @@
 """locky_cli/context.py — .locky/profile.json 기반 프로젝트 컨텍스트 캐시."""
+
 from __future__ import annotations
 
 import json
@@ -6,7 +7,6 @@ import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 
 _LOCKY_DIR = ".locky"
 _PROFILE_FILE = "profile.json"
@@ -60,23 +60,26 @@ def _detect_commit_style(root: Path) -> dict[str, Any]:
     try:
         result = subprocess.run(
             ["git", "log", "--format=%s", "-20"],
-            cwd=root, capture_output=True, text=True, timeout=5,
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=5,
         )
         messages = [m.strip() for m in result.stdout.splitlines() if m.strip()]
         if not messages:
             return {"type": "unknown", "lang": "unknown", "examples": []}
 
         conventional = sum(
-            1 for m in messages
-            if ":" in m and m.split(":")[0].strip().lower() in
-            ("feat", "fix", "refactor", "docs", "style", "test", "chore", "perf")
+            1
+            for m in messages
+            if ":" in m
+            and m.split(":")[0].strip().lower()
+            in ("feat", "fix", "refactor", "docs", "style", "test", "chore", "perf")
         )
         style_type = "conventional" if conventional > len(messages) / 2 else "free"
 
         # 언어 감지: 한글 포함 여부
-        has_korean = any(
-            any("\uac00" <= c <= "\ud7a3" for c in m) for m in messages
-        )
+        has_korean = any(any("\uac00" <= c <= "\ud7a3" for c in m) for m in messages)
         lang = "ko" if has_korean else "en"
 
         return {
@@ -94,6 +97,7 @@ def detect_and_save(root: Path) -> dict[str, Any]:
 
     try:
         from locky_cli.lang_detect import detect as _detect_lang
+
         lang_info = _detect_lang(root)
     except Exception:
         lang_info = existing.get("language", {"primary": "unknown", "all": []})

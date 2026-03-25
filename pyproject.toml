@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "locky-agent"
-version = "1.0.0"
+version = "2.0.0"
 description = "100% 로컬 AI 개발 에이전트 — Planner, Coder, Tester"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -18,6 +18,7 @@ dependencies = [
     "anyio>=4.0.0",
     "pydantic>=2.0.0",
     "prompt-toolkit>=3.0.43",
+    "pyyaml>=6.0",
 ]
 
 [project.scripts]
@@ -28,11 +29,11 @@ dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["actions*", "tools*", "locky_cli*", "ui*"]
+include = ["actions*", "tools*", "locky*", "locky_cli*", "ui*"]
 
 [tool.setuptools]
 py-modules = ["config"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=actions --cov=locky_cli --cov-report=term-missing"
+addopts = "--cov=actions --cov=locky_cli --cov=locky --cov-report=term-missing"

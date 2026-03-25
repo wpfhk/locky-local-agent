@@ -7,7 +7,6 @@ import subprocess
 from pathlib import Path
 from typing import List, Optional
 
-
 # 비-Python 언어별 포맷터 커맨드 (도구명, 추가 인수 리스트)
 # 각 항목: (tool_name, [extra_args_before_files])
 _LANG_FORMATTERS: dict[str, list[tuple[str, list[str]]]] = {
@@ -43,6 +42,7 @@ def run(
     if lang == "auto":
         try:
             from locky_cli.lang_detect import detect as _detect
+
             lang = _detect(root).get("primary", "python")
         except Exception:
             lang = "python"
@@ -129,7 +129,10 @@ def _run_tool(
 ) -> dict:
     """공통 subprocess 실행 헬퍼."""
     if not shutil.which(name):
-        return {"status": "not_installed", "output": f"{name}이(가) 설치되지 않았습니다."}
+        return {
+            "status": "not_installed",
+            "output": f"{name}이(가) 설치되지 않았습니다.",
+        }
 
     try:
         result = subprocess.run(

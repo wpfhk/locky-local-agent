@@ -67,9 +67,7 @@ def run(root: Path, dry_run: bool = False, push: bool = False) -> dict:
             if not modified_files:
                 # untracked only
                 untracked = [
-                    line[3:].strip()
-                    for line in status_lines
-                    if line.startswith("??")
+                    line[3:].strip() for line in status_lines if line.startswith("??")
                 ]
                 if not untracked:
                     return {
@@ -170,12 +168,14 @@ def run(root: Path, dry_run: bool = False, push: bool = False) -> dict:
 def _generate_commit_message(diff_text: str, staged_files: List[str]) -> str:
     """Ollama를 사용하여 Conventional Commits 형식의 커밋 메시지를 생성합니다."""
     try:
-        from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
         import httpx
+
+        from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
 
         # Ollama 서버 헬스체크 (미기동 시 자동 시작 시도)
         try:
             from tools.ollama_guard import ensure_ollama
+
             ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
         except Exception:
             pass  # guard 실패 시 그대로 진행 (기존 오류 처리에 위임)

@@ -1,4 +1,5 @@
 """actions/hook.py 단위 테스트."""
+
 from __future__ import annotations
 
 import stat
@@ -7,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from actions.hook import _HOOK_MARKER, _build_hook_script, _is_locky_hook, run
-
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -147,7 +147,9 @@ def test_run_uninstall_removes_locky_hook(tmp_git_repo: Path):
 
 def test_run_uninstall_restores_backup(tmp_git_repo: Path):
     hooks_dir = _make_hooks_dir(tmp_git_repo)
-    (hooks_dir / "pre-commit").write_text("#!/bin/sh\necho original\n", encoding="utf-8")
+    (hooks_dir / "pre-commit").write_text(
+        "#!/bin/sh\necho original\n", encoding="utf-8"
+    )
     run(tmp_git_repo, action="install")
 
     result = run(tmp_git_repo, action="uninstall")

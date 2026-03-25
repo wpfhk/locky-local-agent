@@ -38,12 +38,14 @@ def run(root: Path, dry_run: bool = True) -> dict:
                 continue
             try:
                 size = _get_size(path)
-                targets.append({
-                    "path": str(path.relative_to(root)),
-                    "abs_path": str(path),
-                    "size_bytes": size,
-                    "is_dir": path.is_dir(),
-                })
+                targets.append(
+                    {
+                        "path": str(path.relative_to(root)),
+                        "abs_path": str(path),
+                        "size_bytes": size,
+                        "is_dir": path.is_dir(),
+                    }
+                )
             except Exception:
                 continue
 

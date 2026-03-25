@@ -1,10 +1,10 @@
 """actions/hook.py — git pre-commit hook 설치·제거·상태 확인."""
+
 from __future__ import annotations
 
 import shutil
 import stat
 from pathlib import Path
-
 
 _HOOK_FILENAME = "pre-commit"
 _BACKUP_SUFFIX = ".locky-backup"
@@ -121,14 +121,21 @@ def _install(hook: Path, backup: Path, steps: list[str]) -> dict:
     backed_up = f" (기존 hook → {backup.name})" if backup.exists() else ""
     return {
         "status": "ok",
-        "message": f"pre-commit hook 설치 완료{backed_up}\n실행 순서: {' → '.join(s for s in steps if s in _STEP_COMMANDS and _STEP_COMMANDS[s])}",
+        "message": (
+            f"pre-commit hook 설치 완료{backed_up}\n"
+            f"실행 순서: {' → '.join(s for s in steps if s in _STEP_COMMANDS and _STEP_COMMANDS[s])}"
+        ),
         "hook_path": str(hook),
     }
 
 
 def _uninstall(hook: Path, backup: Path) -> dict:
     if not hook.exists():
-        return {"status": "ok", "message": "pre-commit hook이 존재하지 않습니다.", "hook_path": str(hook)}
+        return {
+            "status": "ok",
+            "message": "pre-commit hook이 존재하지 않습니다.",
+            "hook_path": str(hook),
+        }
 
     if not _is_locky_hook(hook):
         return {
@@ -141,9 +148,17 @@ def _uninstall(hook: Path, backup: Path) -> dict:
 
     if backup.exists():
         shutil.move(str(backup), str(hook))
-        return {"status": "ok", "message": "hook 제거 완료 (기존 hook 복원됨)", "hook_path": str(hook)}
+        return {
+            "status": "ok",
+            "message": "hook 제거 완료 (기존 hook 복원됨)",
+            "hook_path": str(hook),
+        }
 
-    return {"status": "ok", "message": "pre-commit hook 제거 완료", "hook_path": str(hook)}
+    return {
+        "status": "ok",
+        "message": "pre-commit hook 제거 완료",
+        "hook_path": str(hook),
+    }
 
 
 def _status(hook: Path) -> dict:
@@ -153,4 +168,8 @@ def _status(hook: Path) -> dict:
     if _is_locky_hook(hook):
         return {"status": "ok", "message": "locky hook 설치됨", "hook_path": str(hook)}
 
-    return {"status": "ok", "message": "다른 hook이 설치됨 (locky 아님)", "hook_path": str(hook)}
+    return {
+        "status": "ok",
+        "message": "다른 hook이 설치됨 (locky 아님)",
+        "hook_path": str(hook),
+    }
