@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import re
 
-from locky.core.context import ContextCollector
 from locky.core.session import LockySession
 
 DIFF_SYSTEM = """당신은 코드 편집 전문 에이전트입니다.

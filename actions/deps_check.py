@@ -6,7 +6,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 # 지원되는 의존성 파일 (우선순위 순)
 _DEP_FILES = [
@@ -75,7 +75,6 @@ def _find_dep_file(root: Path) -> tuple[Path | None, str]:
     for name in _DEP_FILES:
         path = root / name
         if path.exists():
-            fmt = name.replace(".", "_").replace("-", "_")  # e.g. "requirements_txt"
             return path, name
     return None, ""
 

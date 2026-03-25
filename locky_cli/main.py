@@ -146,10 +146,7 @@ def format_cmd(
     console.print(f"[dim]루트:[/dim] {root}")
     result = run(root, check_only=check, paths=path_list, lang=lang)
 
-    status = result.get("status", "ok")
     lang = result.get("language", "python")
-    color = "green" if status == "ok" else "red"
-
     # 결과에서 도구 항목만 추출 (status, language 키 제외)
     _skip = {"status", "language"}
     tool_names = [
@@ -578,7 +575,7 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
 
     console = Console()
     root = _get_root(workspace_dir)
-    console.print(f"\n[bold cyan]Locky 프로젝트 설정을 시작합니다.[/bold cyan]")
+    console.print("\n[bold cyan]Locky 프로젝트 설정을 시작합니다.[/bold cyan]")
     console.print(f"[dim]루트:[/dim] {root}\n")
 
     # 1. Ollama 모델 선택
@@ -615,7 +612,7 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
     config_path.write_text(
         yaml.dump(config_data, allow_unicode=True, default_flow_style=False)
     )
-    console.print(f"\n[green]✓[/green] .locky/config.yaml 생성 완료")
+    console.print("\n[green]✓[/green] .locky/config.yaml 생성 완료")
 
     # 5. 프로젝트 컨텍스트 감지 및 저장
     console.print("[cyan]프로젝트 컨텍스트 감지 중...[/cyan]")

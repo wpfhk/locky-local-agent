@@ -121,7 +121,10 @@ def _install(hook: Path, backup: Path, steps: list[str]) -> dict:
     backed_up = f" (기존 hook → {backup.name})" if backup.exists() else ""
     return {
         "status": "ok",
-        "message": f"pre-commit hook 설치 완료{backed_up}\n실행 순서: {' → '.join(s for s in steps if s in _STEP_COMMANDS and _STEP_COMMANDS[s])}",
+        "message": (
+            f"pre-commit hook 설치 완료{backed_up}\n"
+            f"실행 순서: {' → '.join(s for s in steps if s in _STEP_COMMANDS and _STEP_COMMANDS[s])}"
+        ),
         "hook_path": str(hook),
     }
 
