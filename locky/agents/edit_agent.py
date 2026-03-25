@@ -72,9 +72,21 @@ class EditAgent:
             f"지시사항: {instruction}"
         )
 
-        response = "".join(
-            client.stream([{"role": "user", "content": prompt}], system=DIFF_SYSTEM)
-        )
+        try:
+            response = "".join(
+                client.stream(
+                    [{"role": "user", "content": prompt}],
+                    system=DIFF_SYSTEM,
+                    timeout=None,
+                )
+            )
+        except Exception as exc:
+            return {
+                "status": "error",
+                "diff": "",
+                "message": f"LLM 호출 실패 (타임아웃 또는 연결 오류): {exc}",
+                "applied": False,
+            }
         diff = self._extract_diff(response)
 
         if not diff:

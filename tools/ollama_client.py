@@ -89,15 +89,21 @@ class OllamaClient:
                     if chunk.get("done", False):
                         break
 
-    def stream(self, messages: list, system: str = ""):
-        """스트리밍 채팅. 토큰별 동기 제너레이터."""
+    def stream(self, messages: list, system: str = "", timeout: int | None = None):
+        """스트리밍 채팅. 토큰별 동기 제너레이터.
+
+        Args:
+            timeout: 청크 간 타임아웃(초). None이면 무제한 대기 (CPU 추론 시 권장).
+                     기본값은 self.timeout 사용.
+        """
         import json
 
         payload = {"model": self.model, "messages": messages, "stream": True}
         if system:
             payload["system"] = system
 
-        with httpx.Client(timeout=self.timeout) as client:
+        effective_timeout = timeout if timeout is not None else self.timeout
+        with httpx.Client(timeout=effective_timeout) as client:
             with client.stream(
                 "POST", f"{self.base_url}/api/chat", json=payload
             ) as resp:
