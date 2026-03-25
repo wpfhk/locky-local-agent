@@ -7,10 +7,10 @@ from datetime import date
 from pathlib import Path
 from typing import Optional
 
-
 # ------------------------------------------------------------------
 # Public runners — run(root, **opts) -> dict 패턴
 # ------------------------------------------------------------------
+
 
 def run_list(
     root: Path,
@@ -42,18 +42,21 @@ def run_list(
         out_path = _resolve_output(root, project or "jira", output_file)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         md_content = _render_md(
-            issues, project=project,
+            issues,
+            project=project,
             filters={"status": status_filter, "assignee": assignee},
         )
         out_path.write_text(md_content, encoding="utf-8")
         saved_to = str(out_path.relative_to(root))
 
-    return _sanitize_result({
-        "status": "ok",
-        "count": len(issues),
-        "saved_to": saved_to,
-        "issues": issues,
-    })
+    return _sanitize_result(
+        {
+            "status": "ok",
+            "count": len(issues),
+            "saved_to": saved_to,
+            "issues": issues,
+        }
+    )
 
 
 def run_create(
@@ -71,11 +74,19 @@ def run_create(
         {"status": "ok"|"dry_run"|"error", "key": str|None, "url": str|None, "message": str}
     """
     if not project:
-        return {"status": "error", "key": None, "url": None,
-                "message": "--project 옵션이 필요합니다."}
+        return {
+            "status": "error",
+            "key": None,
+            "url": None,
+            "message": "--project 옵션이 필요합니다.",
+        }
     if not summary:
-        return {"status": "error", "key": None, "url": None,
-                "message": "--summary 옵션이 필요합니다."}
+        return {
+            "status": "error",
+            "key": None,
+            "url": None,
+            "message": "--summary 옵션이 필요합니다.",
+        }
 
     if dry_run:
         payload = {
@@ -108,12 +119,14 @@ def run_create(
     except Exception as exc:
         return {"status": "error", "key": None, "url": None, "message": str(exc)}
 
-    return _sanitize_result({
-        "status": "ok",
-        "key": result["key"],
-        "url": result["url"],
-        "message": f"이슈 생성 완료: {result['key']}",
-    })
+    return _sanitize_result(
+        {
+            "status": "ok",
+            "key": result["key"],
+            "url": result["url"],
+            "message": f"이슈 생성 완료: {result['key']}",
+        }
+    )
 
 
 def run_status(root: Path) -> dict:
@@ -128,6 +141,7 @@ def run_status(root: Path) -> dict:
         return {"status": "error", "url": "", "user": "", "message": str(exc)}
 
     from config import JIRA_BASE_URL
+
     if not client.health_check():
         return {
             "status": "error",
@@ -143,22 +157,25 @@ def run_status(root: Path) -> dict:
     except Exception:
         project_count = 0
 
-    return _sanitize_result({
-        "status": "ok",
-        "url": JIRA_BASE_URL,
-        "user": user,
-        "projects": project_count,
-    })
+    return _sanitize_result(
+        {
+            "status": "ok",
+            "url": JIRA_BASE_URL,
+            "user": user,
+            "projects": project_count,
+        }
+    )
 
 
 # ------------------------------------------------------------------
 # Internal helpers
 # ------------------------------------------------------------------
 
+
 def _get_jira_client(root: Path):
     """config + 환경변수에서 JiraClient를 생성합니다."""
-    from tools.jira_client import JiraClient
     from config import JIRA_BASE_URL, JIRA_EMAIL
+    from tools.jira_client import JiraClient
 
     base_url = JIRA_BASE_URL
     email = JIRA_EMAIL
@@ -183,7 +200,9 @@ def _get_jira_client(root: Path):
     return JiraClient(base_url=base_url, email=email, api_token=api_token)
 
 
-_SENSITIVE_KEYS = frozenset({"api_token", "token", "password", "secret", "authorization"})
+_SENSITIVE_KEYS = frozenset(
+    {"api_token", "token", "password", "secret", "authorization"}
+)
 
 
 def _sanitize_result(result: dict) -> dict:

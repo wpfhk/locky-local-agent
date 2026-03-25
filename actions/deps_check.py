@@ -8,7 +8,6 @@ import subprocess
 from pathlib import Path
 from typing import Any, List, Optional
 
-
 # 지원되는 의존성 파일 (우선순위 순)
 _DEP_FILES = [
     "requirements.txt",
@@ -52,12 +51,14 @@ def run(root: Path) -> dict:
     for name, required_version in requirements:
         installed_version = _get_installed_version(name, fmt)
         outdated = _is_outdated(required_version, installed_version)
-        packages.append({
-            "name": name,
-            "required": required_version or "any",
-            "installed": installed_version or "not_installed",
-            "outdated": outdated,
-        })
+        packages.append(
+            {
+                "name": name,
+                "required": required_version or "any",
+                "installed": installed_version or "not_installed",
+                "outdated": outdated,
+            }
+        )
 
     return {
         "status": "ok",
@@ -116,10 +117,12 @@ def _parse_pyproject(path: Path) -> list[tuple[str, str]]:
     content = path.read_text(encoding="utf-8")
     try:
         import tomllib  # Python 3.11+
+
         data: dict[str, Any] = tomllib.loads(content)
     except ImportError:
         try:
             import tomli as tomllib  # type: ignore
+
             data = tomllib.loads(content)
         except ImportError:
             # fallback: 정규식으로 의존성 줄만 추출
@@ -129,11 +132,17 @@ def _parse_pyproject(path: Path) -> list[tuple[str, str]]:
     # PEP 621: [project].dependencies
     deps += data.get("project", {}).get("dependencies", [])
     # Poetry: [tool.poetry.dependencies]
-    for name, val in data.get("tool", {}).get("poetry", {}).get("dependencies", {}).items():
+    for name, val in (
+        data.get("tool", {}).get("poetry", {}).get("dependencies", {}).items()
+    ):
         if name.lower() == "python":
             continue
         if isinstance(val, str):
-            deps.append(f"{name}{val}" if val.startswith(("^", "~", ">", "<", "=", "!")) else name)
+            deps.append(
+                f"{name}{val}"
+                if val.startswith(("^", "~", ">", "<", "=", "!"))
+                else name
+            )
         else:
             deps.append(name)
 
@@ -151,7 +160,7 @@ def _parse_pyproject_regex(content: str) -> list[tuple[str, str]]:
     in_deps = False
     for line in content.splitlines():
         stripped = line.strip()
-        if re.match(r'dependencies\s*=\s*\[', stripped):
+        if re.match(r"dependencies\s*=\s*\[", stripped):
             in_deps = True
             continue
         if in_deps:
@@ -218,7 +227,9 @@ def _pip_version(package_name: str) -> Optional[str]:
     try:
         result = subprocess.run(
             ["pip", "show", package_name],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             return None
@@ -234,7 +245,9 @@ def _npm_version(package_name: str) -> Optional[str]:
     try:
         result = subprocess.run(
             ["npm", "list", package_name, "--depth=0", "--json"],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             return None
@@ -251,7 +264,9 @@ def _go_version(module_path: str) -> Optional[str]:
     try:
         result = subprocess.run(
             ["go", "list", "-m", "-json", module_path],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode != 0:
             return None

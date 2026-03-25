@@ -1,4 +1,5 @@
 """actions/update.py — git pull + pip 재설치 자동 업데이트 (v1.1.0)"""
+
 from __future__ import annotations
 
 import shutil
@@ -50,7 +51,11 @@ def run(root: Path, check_only: bool = False) -> dict:
             "updated": False,
             "message": (
                 f"현재 버전: {current_version} ({current_commit[:7] if current_commit else '?'})\n"
-                + ("최신 버전입니다." if up_to_date else "업데이트가 있습니다. `locky update`를 실행하세요.")
+                + (
+                    "최신 버전입니다."
+                    if up_to_date
+                    else "업데이트가 있습니다. `locky update`를 실행하세요."
+                )
             ),
         }
 
@@ -96,6 +101,7 @@ def _find_locky_repo() -> Optional[Path]:
     """locky-agent 패키지 위치에서 git 루트를 탐색합니다."""
     try:
         import locky_cli
+
         pkg_path = Path(locky_cli.__file__).parent.parent.resolve()
         # git 루트 확인
         if (pkg_path / ".git").exists():
@@ -114,6 +120,7 @@ def _get_version(repo_root: Optional[Path]) -> str:
     try:
         if repo_root is None:
             import locky_cli
+
             repo_root = Path(locky_cli.__file__).parent.parent.resolve()
         pyproject = repo_root / "pyproject.toml"
         content = pyproject.read_text(encoding="utf-8")
@@ -130,7 +137,10 @@ def _get_current_commit(repo_root: Path) -> Optional[str]:
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
-            cwd=repo_root, capture_output=True, text=True, timeout=10,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -143,11 +153,16 @@ def _get_latest_remote_commit(repo_root: Path) -> Optional[str]:
     try:
         subprocess.run(
             ["git", "fetch", "origin", "main"],
-            cwd=repo_root, capture_output=True, timeout=30,
+            cwd=repo_root,
+            capture_output=True,
+            timeout=30,
         )
         result = subprocess.run(
             ["git", "rev-parse", "origin/main"],
-            cwd=repo_root, capture_output=True, text=True, timeout=10,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -161,7 +176,10 @@ def _git_pull(repo_root: Path) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             ["git", "pull", "origin", "main"],
-            cwd=repo_root, capture_output=True, text=True, timeout=60,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
         if result.returncode != 0:
             raise RuntimeError(result.stderr.strip())
@@ -179,7 +197,9 @@ def _reinstall(repo_root: Path) -> bool:
         if shutil.which("pipx"):
             result = subprocess.run(
                 ["pipx", "upgrade", "locky-agent"],
-                capture_output=True, text=True, timeout=120,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
             if result.returncode == 0:
                 return True
@@ -187,7 +207,10 @@ def _reinstall(repo_root: Path) -> bool:
         # pip install -e . fallback
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", "-e", ".", "-q"],
-            cwd=repo_root, capture_output=True, text=True, timeout=120,
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
         return result.returncode == 0
     except Exception:

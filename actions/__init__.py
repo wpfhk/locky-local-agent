@@ -1,4 +1,5 @@
 """Locky 자동화 액션 패키지."""
+
 from actions.cleanup import run as cleanup
 from actions.commit import run as commit
 from actions.deps_check import run as deps_check

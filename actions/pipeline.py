@@ -1,4 +1,5 @@
 """actions/pipeline.py — 여러 locky 명령을 순서대로 실행합니다. (v0.5.0)"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -70,6 +71,7 @@ def run(
         runner_name = _STEP_RUNNERS[step]
         try:
             import actions
+
             runner = getattr(actions, runner_name)
             result = runner(root)
         except Exception as exc:
