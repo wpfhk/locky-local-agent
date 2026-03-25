@@ -1,81 +1,78 @@
-# locky-v2-overhaul — Gap Analysis
+# locky-v2-overhaul — Gap Analysis (v2)
 
 > **Feature**: locky-v2-overhaul
 > **Date**: 2026-03-25
 > **Design**: docs/02-design/features/locky-v2-overhaul.design.md
-> **Analyzer**: bkit:gap-detector
+> **Analyzer**: bkit:gap-detector (2nd run after gap fixes)
 
 ---
 
 ## Overall Scores
 
-| Category | Score | Status |
-|----------|:-----:|:------:|
-| Architecture Compliance | 98% | ✅ |
-| Module Match | 97% | ✅ |
-| CLI Integration | 95% | ✅ |
-| Test Coverage | 129% (67/52) | ✅ |
-| **Weighted Match Rate** | **88%** | ⚠️ |
+| Category | 1차 (이전) | 2차 (현재) | Status |
+|----------|:----------:|:---------:|:------:|
+| Architecture Compliance | 98% | 100% | ✅ |
+| Module Match | 97% | 100% | ✅ |
+| CLI Integration | 95% | 95% | ✅ |
+| Test Coverage | 129% (67/52) | 135% (70/52) | ✅ |
+| **Weighted Match Rate** | **88%** | **97%** | ✅ |
 
 ---
 
-## Module-by-Module Match
+## Gap Resolution — 5/5 해결
 
-| Design Section | 구현 파일 | Match |
-|----------------|----------|:-----:|
-| 3.1 `core/agent.py` | `locky/core/agent.py` | ✅ 100% |
-| 3.2 `core/session.py` | `locky/core/session.py` | ✅ 100% |
-| 3.3 `core/context.py` | `locky/core/context.py` | ✅ 99% (`sys.executable` 개선) |
-| 3.4 `tools/__init__.py` | `locky/tools/__init__.py` | ✅ 100% |
-| 3.5 `tools/format.py` | `locky/tools/format.py` | ✅ 100% |
-| 3.6 `tools/git.py` | `locky/tools/git.py` | ✅ 99% (미사용 import 제거) |
-| 3.7 `tools/file.py` | `locky/tools/file.py` | ✅ 99% (`import re` 모듈 레벨) |
-| 3.8 `agents/ask_agent.py` | `locky/agents/ask_agent.py` | ✅ 100% |
-| 3.9 `agents/edit_agent.py` | `locky/agents/edit_agent.py` | ✅ 100% |
-| 3.10 `runtime/local.py` | `locky/runtime/local.py` | ✅ 100% |
-| `tools/test.py` | `locky/tools/test.py` | ✅ 100% |
-| `tools/scan.py` | `locky/tools/scan.py` | ✅ 100% |
-| `tools/commit.py` | `locky/tools/commit.py` | ✅ 100% |
-| 7.2 `locky/__init__.py` | `locky/__init__.py` | ✅ 100% |
-| 4.1 `ask_cmd` | `locky_cli/main.py` | ✅ 98% |
-| 4.1 `edit_cmd` | `locky_cli/main.py` | ✅ 98% |
-| 4.1 `agent_cmd` | `locky_cli/main.py` | ✅ 95% |
-| 4.2 REPL `/ask` | `locky_cli/repl.py` | ✅ 90% |
-| 4.2 REPL `/edit` | `locky_cli/repl.py` | ✅ 95% |
-| Section 6 `stream()` | `tools/ollama_client.py` | ✅ 100% |
+| # | 항목 | 심각도 | 검증 결과 |
+|---|------|:------:|---------|
+| G1 | `pyproject.toml` packages.find `"locky*"` | **High** | `include = ["actions*", "tools*", "locky*", "locky_cli*", "ui*"]` ✅ |
+| G2 | `pyproject.toml` version `2.0.0` | **Medium** | `version = "2.0.0"` ✅ |
+| G3 | `locky/agents/commit_agent.py` | **Medium** | `CommitAgent` 구현 완료 (actions.commit.run 위임) ✅ |
+| G4 | `tests/test_tools_format.py` 3개 테스트 | **Low** | 위임, ToolResult 타입, 오류 전파 테스트 ✅ |
+| G5 | pytest `--cov=locky` | **Low** | `addopts`에 `--cov=locky` 추가 ✅ |
 
 ---
 
-## Gaps (Missing / Critical)
+## 남은 갭: 없음
 
-| # | 항목 | 심각도 | 설명 |
-|---|------|:------:|------|
-| G1 | `pyproject.toml` packages.find | **High** | `"locky*"` 미포함 → `pip install` 시 v2 패키지 누락 |
-| G2 | `pyproject.toml` version | **Medium** | `"1.1.0"` → `"2.0.0"` 미반영 |
-| G3 | `locky/agents/commit_agent.py` | **Medium** | 설계 패키지 구조에 명시됐으나 미구현 |
-| G4 | `tests/test_tools_format.py` | **Low** | 위임 패턴 검증 테스트 3개 누락 |
-| G5 | pytest `--cov=locky` | **Low** | locky/ 커버리지 미측정 |
+모든 Critical / High / Medium / Low 갭이 해결됨.
 
 ---
 
-## Bonus (설계 외 추가 구현)
+## Minor Deviations (Non-Gap, 의도적 개선)
 
-| 항목 | 파일 | 설명 |
-|------|------|------|
-| `stream_chat()` async | `tools/ollama_client.py` | 기존 비동기 스트리밍 유지 |
-| `test_ollama_stream.py` | `tests/` | stream() 전용 4개 테스트 |
-| `test_cli_v2_commands.py` | `tests/` | CLI 통합 8개 테스트 |
-| REPL 파일 파싱 개선 | `locky_cli/repl.py` | 파일/질문 자동 분리 |
-| agent 명령 스피너 | `locky_cli/main.py` | 실행 중 상태 표시 |
+| 항목 | 설계 | 구현 | 영향 |
+|------|------|------|------|
+| `context.py` subprocess | `"python"` | `sys.executable` | 개선 — virtualenv 호환성 |
+| `file.py` import re | 함수 내부 | 모듈 레벨 | 개선 — PEP 8 준수 |
+| `git.py` | 미사용 import | 제거 | 개선 — 클린업 |
 
 ---
 
-## 권장 수정 순서
+## 테스트 현황 (v2 신규)
 
-| 우선순위 | 항목 | 파일 |
-|:--------:|------|------|
-| 1 | packages.find에 `locky*` 추가 | `pyproject.toml` |
-| 2 | version `2.0.0` 으로 변경 | `pyproject.toml` |
-| 3 | `--cov=locky` 추가 | `pyproject.toml` |
-| 4 | `commit_agent.py` 구현 또는 설계 문서에서 제거 | TBD |
-| 5 | `test_tools_format.py` 생성 | `tests/` |
+| 파일 | 설계 | 실제 | Delta |
+|------|:----:|:----:|:-----:|
+| `test_core_agent.py` | 8 | 9 | +1 |
+| `test_core_session.py` | 6 | 6 | 0 |
+| `test_core_context.py` | 5 | 5 | 0 |
+| `test_tools_base.py` | 4 | 5 | +1 |
+| `test_tools_format.py` | 3 | 3 | 0 |
+| `test_tools_git.py` | 6 | 6 | 0 |
+| `test_tools_file.py` | 6 | 7 | +1 |
+| `test_agents_ask.py` | 4 | 6 | +2 |
+| `test_agents_edit.py` | 6 | 6 | 0 |
+| `test_runtime_local.py` | 4 | 5 | +1 |
+| **설계 소계** | **52** | **58** | **+6** |
+| `test_ollama_stream.py` (보너스) | — | 4 | |
+| `test_cli_v2_commands.py` (보너스) | — | 8 | |
+| **v2 테스트 합계** | **52** | **70** | **+18** |
+
+전체 프로젝트 테스트: **263개** (22개 파일)
+
+---
+
+## 결론
+
+- **Match Rate**: 88% → **97%** — PDCA Check 기준(90%) 초과
+- **남은 갭**: 0개
+- **Status**: ✅ PASS
+- **다음 단계**: `/pdca report locky-v2-overhaul`
