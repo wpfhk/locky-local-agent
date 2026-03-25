@@ -1,6 +1,9 @@
 """tests/test_todo_collector.py — actions/todo_collector.py 테스트 (12개)"""
-import pytest
+
 from pathlib import Path
+
+import pytest
+
 from actions.todo_collector import run
 
 
@@ -17,6 +20,7 @@ def _write(root, name, content):
 
 
 # --- run() ---
+
 
 def test_run_finds_todo(root):
     _write(root, "app.py", "# TODO: fix this\nx = 1\n")

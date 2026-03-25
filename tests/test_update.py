@@ -1,4 +1,5 @@
 """tests/test_update.py — actions/update.py 단위 테스트 (v1.1.0)."""
+
 from __future__ import annotations
 
 import subprocess
@@ -7,14 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from actions.update import (
-    _find_locky_repo,
-    _get_version,
-    _git_pull,
-    _reinstall,
-    run,
-)
-
+from actions.update import (_find_locky_repo, _get_version, _git_pull,
+                            _reinstall, run)
 
 # ── _get_version ───────────────────────────────────────────────────────────────
 
@@ -103,7 +98,9 @@ def test_run_no_repo(tmp_path):
 def test_run_up_to_date(tmp_path):
     (tmp_path / "pyproject.toml").write_text('[project]\nversion = "1.1.0"\n')
     with patch("actions.update._find_locky_repo", return_value=tmp_path):
-        with patch("actions.update._git_pull", return_value=(False, "Already up to date.")):
+        with patch(
+            "actions.update._git_pull", return_value=(False, "Already up to date.")
+        ):
             result = run(tmp_path)
     assert result["status"] == "up_to_date"
     assert result["updated"] is False

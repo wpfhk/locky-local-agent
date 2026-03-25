@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ------------------------------------------------------------------
 # Fixtures & helpers
 # ------------------------------------------------------------------
@@ -59,6 +58,7 @@ def _make_response(status_code: int, body: dict):
 # tools/jira_client.py
 # ------------------------------------------------------------------
 
+
 class TestJiraClientSearch:
     def test_search_returns_parsed_issues(self):
         from tools.jira_client import JiraClient
@@ -71,7 +71,9 @@ class TestJiraClientSearch:
             mock_client_cls.return_value.__enter__.return_value = mock_client
             mock_client.get.return_value = resp
 
-            client = JiraClient("https://example.atlassian.net", "user@test.com", "token123")
+            client = JiraClient(
+                "https://example.atlassian.net", "user@test.com", "token123"
+            )
             issues = client.search_issues("project = PROJ")
 
         assert len(issues) == 1
@@ -87,7 +89,9 @@ class TestJiraClientSearch:
             mock_client = MagicMock()
             mock_client_cls.return_value.__enter__.return_value = mock_client
             mock_client.get.return_value = resp
-            client = JiraClient("https://example.atlassian.net", "user@test.com", "token123")
+            client = JiraClient(
+                "https://example.atlassian.net", "user@test.com", "token123"
+            )
             issues = client.search_issues("project = EMPTY")
         assert issues == []
 
@@ -104,7 +108,9 @@ class TestJiraClientCreate:
             mock_client_cls.return_value.__enter__.return_value = mock_client
             mock_client.post.return_value = resp
 
-            client = JiraClient("https://example.atlassian.net", "user@test.com", "token123")
+            client = JiraClient(
+                "https://example.atlassian.net", "user@test.com", "token123"
+            )
             result = client.create_issue("PROJ", "New feature")
 
         assert result["key"] == "PROJ-2"
@@ -120,7 +126,9 @@ class TestJiraClientHealth:
             mock_client = MagicMock()
             mock_client_cls.return_value.__enter__.return_value = mock_client
             mock_client.get.return_value = resp
-            client = JiraClient("https://example.atlassian.net", "user@test.com", "token123")
+            client = JiraClient(
+                "https://example.atlassian.net", "user@test.com", "token123"
+            )
             assert client.health_check() is True
 
     def test_health_check_fail(self):
@@ -130,13 +138,15 @@ class TestJiraClientHealth:
             mock_client = MagicMock()
             mock_client_cls.return_value.__enter__.return_value = mock_client
             mock_client.get.side_effect = Exception("Connection refused")
-            client = JiraClient("https://example.atlassian.net", "user@test.com", "token123")
+            client = JiraClient(
+                "https://example.atlassian.net", "user@test.com", "token123"
+            )
             assert client.health_check() is False
 
 
 class TestJiraAuthErrors:
     def test_401_raises_auth_error(self):
-        from tools.jira_client import JiraClient, JiraAuthError
+        from tools.jira_client import JiraAuthError, JiraClient
 
         resp = MagicMock()
         resp.status_code = 401
@@ -147,7 +157,9 @@ class TestJiraAuthErrors:
             mock_client_cls.return_value.__enter__.return_value = mock_client
             mock_client.get.return_value = resp
 
-            client = JiraClient("https://example.atlassian.net", "user@test.com", "badtoken")
+            client = JiraClient(
+                "https://example.atlassian.net", "user@test.com", "badtoken"
+            )
             with pytest.raises(JiraAuthError):
                 client.search_issues("project = PROJ")
 
@@ -162,7 +174,9 @@ class TestJiraAuthErrors:
             mock_client_cls.return_value.__enter__.return_value = mock_client
             mock_client.get.return_value = resp
 
-            client = JiraClient("https://example.atlassian.net", "user@test.com", "token")
+            client = JiraClient(
+                "https://example.atlassian.net", "user@test.com", "token"
+            )
             with pytest.raises(JiraForbiddenError):
                 client.search_issues("project = PROJ")
 
@@ -185,10 +199,12 @@ class TestAdfToText:
 
     def test_none_returns_empty(self):
         from tools.jira_client import JiraClient
+
         assert JiraClient.adf_to_text(None) == ""
 
     def test_non_dict_returns_empty(self):
         from tools.jira_client import JiraClient
+
         assert JiraClient.adf_to_text("plain text") == ""  # type: ignore
 
 
@@ -196,14 +212,17 @@ class TestAdfToText:
 # actions/jira.py
 # ------------------------------------------------------------------
 
+
 class TestBuildJql:
     def test_project_only(self):
         from actions.jira import _build_jql
+
         jql = _build_jql(project="PROJ")
         assert "project = PROJ" in jql
 
     def test_all_filters(self):
         from actions.jira import _build_jql
+
         jql = _build_jql(project="PROJ", status="In Progress", assignee="me")
         assert "project = PROJ" in jql
         assert "status" in jql
@@ -211,6 +230,7 @@ class TestBuildJql:
 
     def test_empty_returns_order_by(self):
         from actions.jira import _build_jql
+
         jql = _build_jql()
         assert "ORDER BY" in jql
 
@@ -218,6 +238,7 @@ class TestBuildJql:
 class TestResolveOutput:
     def test_default_path(self, tmp_path):
         from actions.jira import _resolve_output
+
         out = _resolve_output(tmp_path, "PROJ", None)
         assert ".locky" in str(out)
         assert "PROJ" in out.name
@@ -225,15 +246,18 @@ class TestResolveOutput:
 
     def test_explicit_output(self, tmp_path):
         from actions.jira import _resolve_output
+
         custom = str(tmp_path / "custom.md")
         out = _resolve_output(tmp_path, "PROJ", custom)
         assert out == Path(custom).resolve()
 
     def test_conflict_adds_suffix(self, tmp_path):
         from actions.jira import _resolve_output
+
         jira_dir = tmp_path / ".locky" / "jira"
         jira_dir.mkdir(parents=True)
         from datetime import date
+
         today = date.today().isoformat()
         (jira_dir / f"{today}-PROJ.md").write_text("existing")
         out = _resolve_output(tmp_path, "PROJ", None)
@@ -243,6 +267,7 @@ class TestResolveOutput:
 class TestRenderMd:
     def test_header_and_count(self):
         from actions.jira import _render_md
+
         issues = [MOCK_ISSUE_PARSED]
         md = _render_md(issues, project="PROJ", filters={})
         assert "# Jira Issues — PROJ" in md
@@ -250,6 +275,7 @@ class TestRenderMd:
 
     def test_issue_section(self):
         from actions.jira import _render_md
+
         issues = [MOCK_ISSUE_PARSED]
         md = _render_md(issues, project="PROJ", filters={})
         assert "PROJ-1" in md
@@ -291,8 +317,7 @@ class TestRunList:
         from actions.jira import run_list
 
         with patch.dict("os.environ", {"JIRA_API_TOKEN": ""}, clear=False):
-            with patch("config.JIRA_BASE_URL", ""), \
-                 patch("config.JIRA_EMAIL", ""):
+            with patch("config.JIRA_BASE_URL", ""), patch("config.JIRA_EMAIL", ""):
                 result = run_list(tmp_path)
 
         assert result["status"] == "error"
@@ -301,12 +326,16 @@ class TestRunList:
 class TestRunCreate:
     def test_create_dry_run(self, tmp_path):
         from actions.jira import run_create
-        result = run_create(tmp_path, project="PROJ", summary="Test issue", dry_run=True)
+
+        result = run_create(
+            tmp_path, project="PROJ", summary="Test issue", dry_run=True
+        )
         assert result["status"] == "dry_run"
         assert result["key"] is None
 
     def test_create_missing_project(self, tmp_path):
         from actions.jira import run_create
+
         result = run_create(tmp_path, project="", summary="Test")
         assert result["status"] == "error"
 
@@ -316,7 +345,8 @@ class TestRunCreate:
         with patch("actions.jira._get_jira_client") as mock_get:
             mock_client = MagicMock()
             mock_client.create_issue.return_value = {
-                "key": "PROJ-3", "id": "10003",
+                "key": "PROJ-3",
+                "id": "10003",
                 "url": "https://example.atlassian.net/browse/PROJ-3",
             }
             mock_get.return_value = mock_client
@@ -330,8 +360,10 @@ class TestRunStatus:
     def test_status_ok(self, tmp_path):
         from actions.jira import run_status
 
-        with patch("actions.jira._get_jira_client") as mock_get, \
-             patch("config.JIRA_BASE_URL", "https://example.atlassian.net"):
+        with (
+            patch("actions.jira._get_jira_client") as mock_get,
+            patch("config.JIRA_BASE_URL", "https://example.atlassian.net"),
+        ):
             mock_client = MagicMock()
             mock_client.health_check.return_value = True
             mock_client.get_current_user.return_value = "Alice"
@@ -346,8 +378,10 @@ class TestRunStatus:
     def test_status_connection_error(self, tmp_path):
         from actions.jira import run_status
 
-        with patch("actions.jira._get_jira_client") as mock_get, \
-             patch("config.JIRA_BASE_URL", "https://example.atlassian.net"):
+        with (
+            patch("actions.jira._get_jira_client") as mock_get,
+            patch("config.JIRA_BASE_URL", "https://example.atlassian.net"),
+        ):
             mock_client = MagicMock()
             mock_client.health_check.return_value = False
             mock_get.return_value = mock_client

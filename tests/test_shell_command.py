@@ -1,4 +1,5 @@
 """actions/shell_command.py 단위 테스트."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from actions.shell_command import _extract_command, _is_valid_command, _scan_directory
-
+from actions.shell_command import (_extract_command, _is_valid_command,
+                                   _scan_directory)
 
 # ── _extract_command ────────────────────────────────────────────────────────
 
@@ -90,6 +91,7 @@ def test_scan_directory_priority_ext_first(tmp_path: Path):
 
 def test_run_empty_request(tmp_path: Path):
     from actions.shell_command import run
+
     result = run(tmp_path, request="")
     assert result["status"] == "error"
     assert result["command"] == ""
@@ -99,9 +101,7 @@ def test_run_returns_ok_with_mock(tmp_path: Path):
     from actions.shell_command import run
 
     mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "message": {"content": "adb install app.aab"}
-    }
+    mock_response.json.return_value = {"message": {"content": "adb install app.aab"}}
     mock_response.raise_for_status = MagicMock()
 
     with patch("httpx.Client") as mock_client_cls:

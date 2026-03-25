@@ -1,5 +1,6 @@
 from typing import List, Optional
-from git import Repo, InvalidGitRepositoryError
+
+from git import InvalidGitRepositoryError, Repo
 
 from locky_cli.fs_context import get_filesystem_root
 
@@ -10,9 +11,7 @@ def _get_repo() -> Repo:
     try:
         return Repo(root, search_parent_directories=True)
     except InvalidGitRepositoryError:
-        raise RuntimeError(
-            f"'{root}'에서 유효한 Git 저장소를 찾을 수 없습니다."
-        )
+        raise RuntimeError(f"'{root}'에서 유효한 Git 저장소를 찾을 수 없습니다.")
 
 
 def get_status() -> dict:

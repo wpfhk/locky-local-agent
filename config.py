@@ -10,6 +10,7 @@ def _cfg(env_key: str, config_key_path: list, default: str) -> str:
         return env_val
     try:
         from locky_cli.config_loader import load_config
+
         cfg = load_config(Path.cwd())
         val = cfg
         for k in config_key_path:
@@ -22,7 +23,9 @@ def _cfg(env_key: str, config_key_path: list, default: str) -> str:
 
 
 # Ollama 설정
-OLLAMA_BASE_URL = _cfg("OLLAMA_BASE_URL", ["ollama", "base_url"], "http://localhost:11434")
+OLLAMA_BASE_URL = _cfg(
+    "OLLAMA_BASE_URL", ["ollama", "base_url"], "http://localhost:11434"
+)
 OLLAMA_MODEL = _cfg("OLLAMA_MODEL", ["ollama", "model"], "qwen2.5-coder:7b")
 OLLAMA_TIMEOUT = int(_cfg("OLLAMA_TIMEOUT", ["ollama", "timeout"], "300"))
 OLLAMA_TASK_TIMEOUT = int(os.getenv("OLLAMA_TASK_TIMEOUT", "60"))

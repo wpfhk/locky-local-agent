@@ -1,9 +1,12 @@
 """tests/test_core_agent.py — BaseAgent 테스트 (8개)"""
-from unittest.mock import MagicMock, patch
-import pytest
+
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from locky.core.agent import ActionPlan, AgentResult, BaseAgent
 from locky.core.session import LockySession
-from locky.core.agent import BaseAgent, AgentResult, ActionPlan
 from locky.tools import BaseTool, ToolResult
 
 

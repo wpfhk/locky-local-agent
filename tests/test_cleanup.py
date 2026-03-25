@@ -1,7 +1,10 @@
 """tests/test_cleanup.py — actions/cleanup.py 테스트 (12개)"""
-import pytest
+
 from pathlib import Path
-from actions.cleanup import run, _is_excluded, _deduplicate
+
+import pytest
+
+from actions.cleanup import _deduplicate, _is_excluded, run
 
 
 @pytest.fixture
@@ -10,6 +13,7 @@ def root(tmp_path):
 
 
 # --- run() dry_run=True ---
+
 
 def test_run_dry_run_lists_pycache(root):
     pycache = root / "__pycache__"
@@ -51,6 +55,7 @@ def test_run_dry_run_total_size(root):
 
 # --- run() dry_run=False ---
 
+
 def test_run_force_deletes_pyc(root):
     pyc = root / "old.pyc"
     pyc.write_bytes(b"")
@@ -75,6 +80,7 @@ def test_run_force_removed_list(root):
 
 # --- _is_excluded() ---
 
+
 def test_is_excluded_git(tmp_path):
     git_file = tmp_path / ".git" / "config"
     git_file.parent.mkdir()
@@ -98,10 +104,16 @@ def test_is_excluded_normal(tmp_path):
 
 # --- _deduplicate() ---
 
+
 def test_deduplicate_removes_child_when_parent_included():
     targets = [
         {"path": "a/b", "abs_path": "/a/b", "size_bytes": 10, "is_dir": True},
-        {"path": "a/b/c.pyc", "abs_path": "/a/b/c.pyc", "size_bytes": 5, "is_dir": False},
+        {
+            "path": "a/b/c.pyc",
+            "abs_path": "/a/b/c.pyc",
+            "size_bytes": 5,
+            "is_dir": False,
+        },
     ]
     result = _deduplicate(targets)
     paths = [t["path"] for t in result]

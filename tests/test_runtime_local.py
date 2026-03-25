@@ -1,7 +1,10 @@
 """tests/test_runtime_local.py — LocalRuntime 테스트 (4개)"""
+
 import sys
-import pytest
 from pathlib import Path
+
+import pytest
+
 from locky.runtime.local import LocalRuntime, RunResult
 
 

@@ -144,6 +144,7 @@ class JiraClient:
 # Module-level helpers
 # ------------------------------------------------------------------
 
+
 def _make_basic_auth(email: str, api_token: str) -> str:
     raw = f"{email}:{api_token}".encode()
     return "Basic " + base64.b64encode(raw).decode()
@@ -151,9 +152,13 @@ def _make_basic_auth(email: str, api_token: str) -> str:
 
 def _raise_for_status(resp: httpx.Response, context: str = "") -> None:
     if resp.status_code == 401:
-        raise JiraAuthError("Jira 인증 실패: JIRA_API_TOKEN 또는 JIRA_EMAIL을 확인하세요.")
+        raise JiraAuthError(
+            "Jira 인증 실패: JIRA_API_TOKEN 또는 JIRA_EMAIL을 확인하세요."
+        )
     if resp.status_code == 403:
-        raise JiraForbiddenError("Jira 권한 없음: 해당 프로젝트에 접근 권한이 없습니다.")
+        raise JiraForbiddenError(
+            "Jira 권한 없음: 해당 프로젝트에 접근 권한이 없습니다."
+        )
     if resp.status_code == 404:
         detail = f" ({context})" if context else ""
         raise JiraNotFoundError(f"Jira 리소스를 찾을 수 없습니다{detail}.")

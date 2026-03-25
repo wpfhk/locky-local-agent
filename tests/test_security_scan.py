@@ -1,7 +1,11 @@
 """tests/test_security_scan.py — actions/security_scan.py 테스트 (15개)"""
-import pytest
+
 from pathlib import Path
-from actions.security_scan import run, _is_excluded, _scan_patterns, _get_recommendation
+
+import pytest
+
+from actions.security_scan import (_get_recommendation, _is_excluded,
+                                   _scan_patterns, run)
 
 
 @pytest.fixture
@@ -17,6 +21,7 @@ def _write(root, filename, content):
 
 
 # --- run() ---
+
 
 def test_run_clean_directory(scan_root):
     _write(scan_root, "safe.py", "x = 1\nprint(x)\n")
@@ -46,16 +51,14 @@ def test_run_detects_shell_true(scan_root):
 
 
 def test_run_severity_filter_critical_only(scan_root):
-    _write(scan_root, "mixed.py",
-           'password = "abc"\nhttp://external.com/api\n')
+    _write(scan_root, "mixed.py", 'password = "abc"\nhttp://external.com/api\n')
     result = run(scan_root, severity_filter="critical")
     severities = {i["severity"] for i in result["issues"]}
     assert severities <= {"critical"}
 
 
 def test_run_severity_filter_high_includes_critical(scan_root):
-    _write(scan_root, "mixed.py",
-           'password = "abc"\neval(x)\n')
+    _write(scan_root, "mixed.py", 'password = "abc"\neval(x)\n')
     result = run(scan_root, severity_filter="high")
     severities = {i["severity"] for i in result["issues"]}
     assert severities <= {"critical", "high", "medium"}  # test file downgrade 포함
@@ -89,11 +92,20 @@ def test_run_returns_issue_fields(scan_root):
     result = run(scan_root)
     assert result["issues"]
     issue = result["issues"][0]
-    for key in ("severity", "category", "file", "line", "code_snippet", "description", "recommendation"):
+    for key in (
+        "severity",
+        "category",
+        "file",
+        "line",
+        "code_snippet",
+        "description",
+        "recommendation",
+    ):
         assert key in issue
 
 
 # --- _is_excluded() ---
+
 
 def test_is_excluded_venv(tmp_path):
     venv_file = tmp_path / ".venv" / "lib" / "foo.py"
@@ -110,6 +122,7 @@ def test_is_excluded_normal_file(tmp_path):
 
 
 # --- _get_recommendation() ---
+
 
 def test_get_recommendation_known_category():
     rec = _get_recommendation("hardcoded_secret")

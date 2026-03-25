@@ -1,13 +1,13 @@
 """actions/format_code.py 단위 테스트."""
+
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from actions.format_code import _run_tool, run
-
 
 # ── _run_tool ─────────────────────────────────────────────────────────────────
 

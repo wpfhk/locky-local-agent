@@ -1,7 +1,10 @@
 """tests/test_ollama_stream.py — OllamaClient.stream() 테스트 (4개)"""
+
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import pytest
+
 from tools.ollama_client import OllamaClient
 
 
@@ -61,7 +64,7 @@ def test_stream_stops_on_done(tmp_path):
 
 def test_stream_empty_content_skipped():
     lines = [
-        _make_line(""),        # 빈 content → skip
+        _make_line(""),  # 빈 content → skip
         _make_line("내용"),
         _make_line("", done=True),
     ]
@@ -100,10 +103,11 @@ def test_stream_with_system():
 
     with patch("httpx.Client", return_value=mock_client):
         client = OllamaClient()
-        tokens = list(client.stream(
-            [{"role": "user", "content": "질문"}],
-            system="시스템 프롬프트"
-        ))
+        tokens = list(
+            client.stream(
+                [{"role": "user", "content": "질문"}], system="시스템 프롬프트"
+            )
+        )
 
     # system 파라미터가 payload에 포함됐는지 확인
     call_kwargs = mock_client.stream.call_args[1]

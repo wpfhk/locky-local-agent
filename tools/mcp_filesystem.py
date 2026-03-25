@@ -97,7 +97,9 @@ def get_file_tree(root: str = ".", max_depth: int = 4) -> str:
         for i, entry in enumerate(entries):
             is_last = i == len(entries) - 1
             connector = "└── " if is_last else "├── "
-            lines.append(prefix + connector + entry.name + ("/" if entry.is_dir() else ""))
+            lines.append(
+                prefix + connector + entry.name + ("/" if entry.is_dir() else "")
+            )
             if entry.is_dir():
                 extension = "    " if is_last else "│   "
                 _walk(entry, prefix + extension, depth + 1)

@@ -1,4 +1,5 @@
 """tests/test_config_loader.py — config_loader.py 단위 테스트 (v1.1.0)."""
+
 from __future__ import annotations
 
 import os
@@ -7,15 +8,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from locky_cli.config_loader import (
-    get_auto_profile,
-    get_hook_steps,
-    get_ollama_base_url,
-    get_ollama_model,
-    get_ollama_timeout,
-    load_config,
-)
-
+from locky_cli.config_loader import (get_auto_profile, get_hook_steps,
+                                     get_ollama_base_url, get_ollama_model,
+                                     get_ollama_timeout, load_config)
 
 # ── load_config ────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,5 @@
 """locky_cli/lang_detect.py 단위 테스트."""
+
 from __future__ import annotations
 
 import subprocess
@@ -7,7 +8,6 @@ from pathlib import Path
 import pytest
 
 from locky_cli.lang_detect import detect
-
 
 # ── detect — git 레포 기반 ────────────────────────────────────────────────────
 
