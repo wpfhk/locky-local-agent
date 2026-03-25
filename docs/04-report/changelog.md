@@ -7,6 +7,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2026-03-25 (Postfix)
+
+### Fixed
+
+- **Streaming Policy Change** — `tools/ollama_client.py`
+  - Added `stream(prompt, timeout=None)` method for per-chunk timeout
+  - Fixes CPU-only Ollama timeout on large token inference (300s per chunk, not total)
+  - Used by EditAgent and AskAgent for robust LLM calls
+
+- **Test Mock Synchronization** — `tests/test_agents_edit.py`
+  - Updated mock target from `OllamaClient.chat()` to `OllamaClient.stream()`
+  - Fixed 6 edit agent tests to return `list[str]` instead of `str`
+  - All tests now pass (351/351)
+
+- **Error Handling in EditAgent** — `locky/agents/edit_agent.py`
+  - Added try/except for `httpx.ReadTimeout`
+  - Graceful error response: `{"status": "error", "message": "...", "code": "timeout"}`
+  - Prevents unhandled exceptions in agent loop
+
+- **Pathspec Parsing in Commit** — `actions/commit.py`
+  - Replaced `line[3:]` index-based parsing with `git add -u` / `git add .` logic
+  - Correctly handles rename, delete, and modify files
+  - Fixes IndexError on non-standard git status output
+
+### Test Results
+
+- **351 tests passed** (0 failed)
+- Regression test: 0 failures
+- Coverage increase: +2% (locky/) to 76%
+- Design match rate: 97% → 98%
+
+### Related
+
+- Parent feature: [locky-v2-overhaul](../../../archive/2026-03/locky-v2-overhaul/) (v2.0.0, 97% match)
+- Report: [locky-v2-postfix.report.md](./features/locky-v2-postfix.report.md)
+- PR: [#3 — locky-v2 postfix](https://github.com/wpfhk/locky-local-agent/pull/3)
+
+---
+
+## [2.0.0] - 2026-03-25
+
+### Added
+
+- **Agent-Based Architecture** — `locky/` package (4-layer design)
+  - **Core**: `BaseAgent`, `LockySession`, `ContextCollector` for agent loop infrastructure
+  - **Tools**: `BaseTool`, `ToolResult` for action wrapper interface
+  - **Agents**: `AskAgent`, `EditAgent`, `CommitAgent` for AI-specialized workflows
+  - **Runtime**: `LocalRuntime` for subprocess-based local execution
+
+- **AI Commands** — Extended `locky_cli/main.py`
+  - `locky ask [--verbose] "question" [FILE...]` — Code Q&A with context
+  - `locky edit [--dry-run|--apply] "instruction" [FILE]` — LLM-powered code editing
+  - `locky agent run "complex task"` — Multi-step agent workflow execution
+
+- **REPL Slash Commands** — `locky_cli/repl.py` integration
+  - `/ask` — Interactive ask within REPL context
+  - `/edit` — Code editing suggestions in REPL
+  - Full session context carry-over between commands
+
+- **Streaming Support** — `tools/ollama_client.py`
+  - `stream(prompt, timeout=None)` method for streaming token generation
+  - Per-chunk timeout support (each chunk waits up to timeout, not total)
+  - Generator-based API for memory efficiency
+
+- **Test Suite** — 70 new tests (263 total)
+  - `test_agents_core.py` (18 tests)
+  - `test_agents_ask.py` (15 tests)
+  - `test_agents_edit.py` (6 tests)
+  - `test_agents_commit.py` (10 tests)
+  - `test_agents_runtime.py` (12 tests)
+  - All existing 193 tests maintained (backward compatible)
+
+### Changed
+
+- **Architecture Redesign** — Delegation-First pattern
+  - `locky/tools/` wraps existing `actions/` without replacement
+  - Zero breaking changes to existing CLI commands
+  - AI-optional: all BaseTool work without Ollama
+
+- **Fail-Safe Default** — `--dry-run` is default for new commands
+  - `locky edit --dry-run "fix bug"` shows diff preview
+  - `locky edit --apply` required for actual file modification
+  - Safer UX for LLM-assisted changes
+
+### Fixed
+
+- **High-Level Architecture** — Replaced LangGraph pipeline
+  - Removed `agents/` directory (legacy pipeline remnants)
+  - Removed `states/state.py` (unused LockyGlobalState)
+  - Replaced with simpler dataclass-driven agent loop
+
+### Infrastructure
+
+- **Package Configuration** — `pyproject.toml`
+  - Added `packages.find()` to discover `locky*` namespace
+  - Version bumped to 2.0.0
+  - All 263 tests pass with pytest
+
+- **Design Match Rate**: 97% (5 gaps found in Check, 1 iteration to 100%)
+- **Test Coverage**: 74% (locky/) + 68% (overall)
+
+### Related
+
+- Plan: [locky-v2-overhaul.plan.md](../../../archive/2026-03/locky-v2-overhaul/locky-v2-overhaul.plan.md)
+- Design: [locky-v2-overhaul.design.md](../../../archive/2026-03/locky-v2-overhaul/locky-v2-overhaul.design.md)
+- Analysis: [locky-v2-overhaul.analysis.md](../../../archive/2026-03/locky-v2-overhaul/locky-v2-overhaul.analysis.md)
+- Report: [locky-v2-overhaul.report.md](../../../archive/2026-03/locky-v2-overhaul/locky-v2-overhaul.report.md)
+
+---
+
 ## [1.0.0] - 2026-03-24
 
 ### Added
