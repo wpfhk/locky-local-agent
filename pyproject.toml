@@ -4,21 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "locky-agent"
-version = "2.0.0"
-description = "100% 로컬 AI 개발 에이전트 — Planner, Coder, Tester"
+version = "4.0.0"
+description = "Natural Language to Shell Command -- 100% local CLI tool powered by Ollama"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27.0",
-    "gitpython>=3.1.40",
-    "chainlit>=1.3.0",
     "click>=8.1.0",
     "rich>=13.7.0",
-    "python-dotenv>=1.0.0",
-    "anyio>=4.0.0",
-    "pydantic>=2.0.0",
     "prompt-toolkit>=3.0.43",
-    "pyyaml>=6.0",
 ]
 
 [project.scripts]
@@ -26,18 +20,14 @@ locky = "locky_cli.main:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0.0", "pytest-cov>=4.0.0"]
-litellm = ["litellm>=1.0.0"]
-openai = ["openai>=1.0.0"]
-anthropic = ["anthropic>=0.20.0"]
-all-providers = ["litellm>=1.0.0", "openai>=1.0.0", "anthropic>=0.20.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["actions*", "tools*", "locky*", "locky_cli*", "ui*"]
+include = ["actions*", "tools*", "locky_cli*"]
 
 [tool.setuptools]
 py-modules = ["config"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=actions --cov=locky_cli --cov=locky --cov=tools --cov-report=term-missing"
+addopts = "--cov=actions --cov=locky_cli --cov=tools --cov-report=term-missing"

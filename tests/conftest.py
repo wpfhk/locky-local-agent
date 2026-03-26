@@ -1,4 +1,4 @@
-"""pytest 공통 픽스처."""
+"""pytest 공통 픽스처 (v4.0.0)."""
 
 from __future__ import annotations
 

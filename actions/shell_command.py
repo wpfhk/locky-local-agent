@@ -1,19 +1,40 @@
-"""actions/shell_command.py — 자연어 요청을 셸 명령으로 변환합니다."""
+"""actions/shell_command.py -- 자연어 요청을 셸 명령으로 변환합니다. (v4.0.0)"""
 
 from __future__ import annotations
 
 import re
 from pathlib import Path
 
-# 영어 시스템 프롬프트: 한국어보다 기술 명령 출력 신뢰도가 높음
-_SYSTEM_PROMPT = (
-    "You are a shell command generator for macOS/Linux/Android development. "
-    "Output ONLY a single executable shell command. "
-    "No explanations, no Korean text, no markdown, no code blocks. "
-    "Just the raw command. "
-    "If the request is ambiguous, make the most reasonable assumption based on the files listed. "
-    "If truly impossible, output: echo 'cannot determine command'"
-)
+# 영어 시스템 프롬프트: Few-shot 예시 포함, 코드 생성 명시 거부
+_SYSTEM_PROMPT = """\
+You are a shell command generator for macOS/Linux.
+Output ONLY a single executable shell command.
+No explanations, no markdown, no code blocks. Just the raw command.
+
+RULES:
+1. Output must be a valid shell command (bash/zsh/sh).
+2. NEVER output programming language code (Python, JavaScript, Go, Rust, etc.).
+3. If the user asks to "write code", "implement a program", "create a script", \
+or any code-generation task, output exactly: echo 'Use a code editor for programming tasks'
+4. If the request is ambiguous, make the most reasonable assumption based on the files listed.
+5. If truly impossible, output: echo 'cannot determine command'
+
+EXAMPLES:
+User: 현재 디렉토리의 파일 목록을 보여줘
+Output: ls -la
+
+User: app.aab를 연결된 기기에 설치해줘
+Output: adb install app.aab
+
+User: 파이썬 프로그램을 만들어줘
+Output: echo 'Use a code editor for programming tasks'
+
+User: git 로그를 보여줘
+Output: git log --oneline -20
+
+User: Docker 컨테이너 목록 보여줘
+Output: docker ps -a
+"""
 
 # 관련성 높은 확장자 (우선 표시)
 _PRIORITY_EXTS = {
@@ -33,6 +54,32 @@ _PRIORITY_EXTS = {
     ".yml",
     ".toml",
 }
+
+# 프로그래밍 언어 코드 키워드 (startswith 검사)
+_CODE_KEYWORDS = frozenset(
+    {
+        "import ",
+        "from ",
+        "class ",
+        "def ",
+        "function ",
+        "const ",
+        "let ",
+        "var ",
+        "print(",
+        "console.log(",
+        "package ",
+        "public ",
+        "private ",
+        "protected ",
+        "async ",
+        "await ",
+        "return ",
+        "if __name__",
+        "#!/usr/bin/env python",
+        "#!/usr/bin/python",
+    }
+)
 
 
 def _scan_directory(root: Path) -> str:
@@ -78,6 +125,11 @@ def _is_valid_command(cmd: str) -> bool:
     # 알파벳·경로·변수로 시작해야 함
     if not re.match(r"^[a-zA-Z./~$_(]", cmd):
         return False
+    # 프로그래밍 언어 코드 감지
+    cmd_lower = cmd.lower()
+    for kw in _CODE_KEYWORDS:
+        if cmd_lower.startswith(kw):
+            return False
     return True
 
 
@@ -101,7 +153,7 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
             "message": "요청 내용이 비어있습니다.",
         }
 
-    # 디렉토리 컨텍스트 포함 → Ollama가 파일 존재를 인식
+    # 디렉토리 컨텍스트 포함 -> Ollama가 파일 존재를 인식
     dir_files = _scan_directory(root)
     user_message = (
         f"Working directory: {root}\n"
@@ -110,66 +162,36 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
     )
 
     try:
-        raw_content = None
+        import httpx
 
-        # LLM Registry를 통한 호출 시도
+        from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
+
         try:
-            from tools.llm.registry import LLMRegistry
+            from tools.ollama_guard import ensure_ollama
 
-            llm_client = LLMRegistry.get_client(root)
-
-            # Ollama 전용: 서버 헬스체크 + 자동 시작
-            if llm_client.provider_name == "ollama":
-                try:
-                    from tools.ollama_guard import ensure_ollama
-
-                    ensure_ollama(
-                        getattr(llm_client, "_base_url", "http://localhost:11434"),
-                        llm_client.model_name,
-                    )
-                except Exception:
-                    pass
-
-            response = llm_client.chat(
-                messages=[{"role": "user", "content": user_message}],
-                system=_SYSTEM_PROMPT,
-            )
-            raw_content = response.content.strip()
+            ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
         except Exception:
             pass
 
-        # Legacy fallback: 직접 Ollama 호출
-        if raw_content is None:
-            import httpx
+        payload = {
+            "model": OLLAMA_MODEL,
+            "messages": [{"role": "user", "content": user_message}],
+            "system": _SYSTEM_PROMPT,
+            "stream": False,
+            "options": {
+                "temperature": 0,
+                "num_predict": 80,
+                "top_k": 1,
+            },
+        }
 
-            from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
-
-            try:
-                from tools.ollama_guard import ensure_ollama
-
-                ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
-            except Exception:
-                pass
-
-            payload = {
-                "model": OLLAMA_MODEL,
-                "messages": [{"role": "user", "content": user_message}],
-                "system": _SYSTEM_PROMPT,
-                "stream": False,
-                "options": {
-                    "temperature": 0,
-                    "num_predict": 80,
-                    "top_k": 1,
-                },
-            }
-
-            with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
-                resp = client.post(
-                    f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat",
-                    json=payload,
-                )
-                resp.raise_for_status()
-                raw_content = resp.json()["message"]["content"].strip()
+        with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
+            resp = client.post(
+                f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat",
+                json=payload,
+            )
+            resp.raise_for_status()
+            raw_content = resp.json()["message"]["content"].strip()
 
         command = _extract_command(raw_content)
 
