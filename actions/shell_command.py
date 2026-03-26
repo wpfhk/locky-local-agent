@@ -110,37 +110,66 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
     )
 
     try:
-        import httpx
+        raw_content = None
 
-        from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
-
-        # Ollama 서버 헬스체크 (미기동 시 자동 시작 시도)
+        # LLM Registry를 통한 호출 시도
         try:
-            from tools.ollama_guard import ensure_ollama
+            from tools.llm.registry import LLMRegistry
 
-            ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
-        except Exception:
-            pass  # guard 실패 시 그대로 진행
+            llm_client = LLMRegistry.get_client(root)
 
-        payload = {
-            "model": OLLAMA_MODEL,
-            "messages": [{"role": "user", "content": user_message}],
-            "system": _SYSTEM_PROMPT,
-            "stream": False,
-            "options": {
-                "temperature": 0,  # 결정론적 출력 (속도 ↑, 정확도 ↑)
-                "num_predict": 80,  # 셸 명령은 짧음 → 불필요한 토큰 차단
-                "top_k": 1,  # greedy decoding
-            },
-        }
+            # Ollama 전용: 서버 헬스체크 + 자동 시작
+            if llm_client.provider_name == "ollama":
+                try:
+                    from tools.ollama_guard import ensure_ollama
 
-        with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
-            response = client.post(
-                f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat",
-                json=payload,
+                    ensure_ollama(
+                        getattr(llm_client, "_base_url", "http://localhost:11434"),
+                        llm_client.model_name,
+                    )
+                except Exception:
+                    pass
+
+            response = llm_client.chat(
+                messages=[{"role": "user", "content": user_message}],
+                system=_SYSTEM_PROMPT,
             )
-            response.raise_for_status()
-            raw_content = response.json()["message"]["content"].strip()
+            raw_content = response.content.strip()
+        except Exception:
+            pass
+
+        # Legacy fallback: 직접 Ollama 호출
+        if raw_content is None:
+            import httpx
+
+            from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
+
+            try:
+                from tools.ollama_guard import ensure_ollama
+
+                ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
+            except Exception:
+                pass
+
+            payload = {
+                "model": OLLAMA_MODEL,
+                "messages": [{"role": "user", "content": user_message}],
+                "system": _SYSTEM_PROMPT,
+                "stream": False,
+                "options": {
+                    "temperature": 0,
+                    "num_predict": 80,
+                    "top_k": 1,
+                },
+            }
+
+            with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
+                resp = client.post(
+                    f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat",
+                    json=payload,
+                )
+                resp.raise_for_status()
+                raw_content = resp.json()["message"]["content"].strip()
 
         command = _extract_command(raw_content)
 
@@ -148,7 +177,7 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
             return {
                 "status": "error",
                 "command": "",
-                "message": f"유효한 셸 명령을 생성하지 못했습니다.\nOllama 응답: {raw_content[:120]}",
+                "message": f"유효한 셸 명령을 생성하지 못했습니다.\nLLM 응답: {raw_content[:120]}",
             }
 
         return {
