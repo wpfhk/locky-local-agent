@@ -6,6 +6,20 @@
 | locky-agent-v1.1 | completed | 95% | 2026-03-25 | [locky-agent-v1.1/](./locky-agent-v1.1/) |
 | jira-integration | completed | 95% | 2026-03-25 | [jira-integration/](./jira-integration/) |
 | locky-v2-overhaul | completed | 97% | 2026-03-25 | [locky-v2-overhaul/](./locky-v2-overhaul/) |
+| locky-v2-postfix | completed | 98% | 2026-03-25 | [Report](../04-report/features/locky-v2-postfix.report.md) |
+
+## locky-v2-postfix 요약
+
+- **버전**: v2.0.0 → v2.0.1
+- **기간**: 2026-03-25 (단일 세션)
+- **작업**: 4개 버그픽스 (streaming timeout, mock 동기화, error handling, pathspec 파싱)
+- **테스트**: 351개 pass (0 failed)
+- **Match Rate**: 97% → 98%
+- **커밋**:
+  - `b9da45d` fix(edit): streaming policy change (per-chunk timeout)
+  - `2eb5279` fix(test): mock synchronization (OllamaClient.stream)
+  - `343b993` fix(edit): error handling (graceful timeout response)
+  - `1eec176` fix(commit): pathspec parsing (git add -u/.)
 
 ## locky-agent-v1.1 요약
 

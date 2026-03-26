@@ -567,10 +567,11 @@ def hook_cmd(action: str, steps: str, workspace_dir: Path | None) -> None:
     help="워크스페이스 루트(기본: 현재 디렉터리).",
 )
 def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
-    """프로젝트를 초기화합니다 (.locky/config.yaml 생성, hook 설치)."""
+    """프로젝트를 초기화합니다 (.locky/config.yaml 생성, hook 설치, 프로바이더 자동 감지)."""
     import yaml  # type: ignore
 
     from actions.hook import run as hook_run
+    from locky_cli.config_loader import detect_available_providers, validate_config
     from locky_cli.context import detect_and_save
 
     console = Console()
@@ -578,18 +579,51 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
     console.print("\n[bold cyan]Locky 프로젝트 설정을 시작합니다.[/bold cyan]")
     console.print(f"[dim]루트:[/dim] {root}\n")
 
-    # 1. Ollama 모델 선택
-    model = click.prompt(
-        "Ollama 모델을 선택하세요",
-        default="qwen2.5-coder:7b",
+    # 0. Auto-detect available providers
+    console.print("[cyan]프로바이더 감지 중...[/cyan]")
+    providers = detect_available_providers()
+    for pname, pinfo in providers.items():
+        avail = pinfo.get("available", False)
+        icon = "[green]✓[/green]" if avail else "[dim]✗[/dim]"
+        extra = ""
+        if pname == "ollama" and avail:
+            models = pinfo.get("models", [])
+            extra = f" ({len(models)} models)" if models else ""
+        console.print(f"  {icon} {pname}{extra}")
+
+    # 1. Provider 선택
+    default_provider = "ollama"
+    if providers.get("openai", {}).get("available"):
+        default_provider = "openai"
+    elif providers.get("anthropic", {}).get("available"):
+        default_provider = "anthropic"
+    elif providers.get("ollama", {}).get("available"):
+        default_provider = "ollama"
+
+    provider = click.prompt(
+        "\nLLM 프로바이더를 선택하세요 (ollama/openai/anthropic)",
+        default=default_provider,
         show_default=True,
     )
 
-    # 2. hook 설치 여부 (--hook/--no-hook 플래그 없으면 대화형)
+    # 2. Model 선택
+    if provider == "ollama":
+        ollama_models = providers.get("ollama", {}).get("models", [])
+        default_model = ollama_models[0] if ollama_models else "qwen2.5-coder:7b"
+        model = click.prompt("모델을 선택하세요", default=default_model, show_default=True)
+    elif provider == "openai":
+        model = click.prompt("모델을 선택하세요", default="gpt-4o", show_default=True)
+    elif provider == "anthropic":
+        model = click.prompt(
+            "모델을 선택하세요", default="claude-sonnet-4-20250514", show_default=True
+        )
+    else:
+        model = click.prompt("모델명을 입력하세요", default="gpt-4o")
+
+    # 3. hook 설치 여부
     if install_hook is None:
         install_hook = click.confirm("pre-commit 훅을 설치할까요?", default=True)
 
-    # 3. hook 스텝 선택
     hook_steps_str = "format,test,scan"
     if install_hook:
         hook_steps_str = click.prompt(
@@ -604,17 +638,35 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
     config_path = locky_dir / "config.yaml"
 
     hook_steps = [s.strip() for s in hook_steps_str.split(",") if s.strip()]
-    config_data = {
-        "ollama": {"model": model},
+    config_data: dict = {
         "hook": {"steps": hook_steps},
         "init": {"auto_profile": True},
     }
+
+    # Build LLM section based on provider
+    if provider == "ollama":
+        config_data["ollama"] = {"model": model}
+    else:
+        llm_section: dict = {"provider": provider, "model": model}
+        if provider == "openai":
+            llm_section["api_key_env"] = "OPENAI_API_KEY"
+        elif provider == "anthropic":
+            llm_section["api_key_env"] = "ANTHROPIC_API_KEY"
+        config_data["llm"] = llm_section
+
+    # 5. Validate before writing
+    warnings = validate_config(config_data)
+    if warnings:
+        console.print("\n[yellow]설정 경고:[/yellow]")
+        for w in warnings:
+            console.print(f"  [yellow]![/yellow] {w}")
+
     config_path.write_text(
         yaml.dump(config_data, allow_unicode=True, default_flow_style=False)
     )
     console.print("\n[green]✓[/green] .locky/config.yaml 생성 완료")
 
-    # 5. 프로젝트 컨텍스트 감지 및 저장
+    # 6. 프로젝트 컨텍스트 감지 및 저장
     console.print("[cyan]프로젝트 컨텍스트 감지 중...[/cyan]")
     try:
         profile = detect_and_save(root)
@@ -625,7 +677,7 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
     except Exception:
         console.print("[dim]프로파일 감지 생략[/dim]")
 
-    # 6. hook 설치
+    # 7. hook 설치
     if install_hook:
         hook_result = hook_run(root, action="install", steps=hook_steps)
         hook_status = hook_result.get("status", "error")
@@ -641,6 +693,135 @@ def init_cmd(install_hook: bool | None, workspace_dir: Path | None) -> None:
     console.print(
         "\n[bold green]초기화 완료![/bold green] `locky --help`로 사용법을 확인하세요."
     )
+
+
+# ---------------------------------------------------------------------------
+# Session commands (v3 Phase 2)
+# ---------------------------------------------------------------------------
+
+
+@cli.group("session")
+def session_grp() -> None:
+    """세션을 관리합니다 (list/resume/export)."""
+
+
+@session_grp.command("list")
+@click.option("--limit", "-n", default=20, show_default=True, help="표시할 세션 수.")
+@click.option(
+    "--workspace",
+    "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트.",
+)
+def session_list_cmd(limit: int, workspace_dir: Path | None) -> None:
+    """최근 세션 목록을 표시합니다."""
+    from tools.session.manager import SessionManager
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    mgr = SessionManager(root)
+    sessions = mgr.list_recent(limit=limit)
+
+    if not sessions:
+        console.print("[dim]저장된 세션이 없습니다.[/dim]")
+        return
+
+    table = Table(title=f"세션 목록 — {len(sessions)}개", show_header=True)
+    table.add_column("ID", style="cyan", width=14)
+    table.add_column("제목")
+    table.add_column("메시지 수", justify="right")
+    table.add_column("업데이트", width=20)
+
+    for s in sessions:
+        table.add_row(
+            s["id"],
+            s.get("title", "")[:40] or "(제목 없음)",
+            str(s.get("message_count", 0)),
+            s.get("updated_at", "")[:19],
+        )
+    console.print(table)
+
+
+@session_grp.command("resume")
+@click.argument("session_id")
+@click.option(
+    "--workspace",
+    "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트.",
+)
+def session_resume_cmd(session_id: str, workspace_dir: Path | None) -> None:
+    """세션 컨텍스트를 복원합니다."""
+    from tools.session.manager import SessionManager
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    mgr = SessionManager(root)
+
+    try:
+        data = mgr.resume(session_id)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        return
+
+    session = data["session"]
+    messages = data["messages"]
+
+    console.print(
+        Panel(
+            f"[bold]ID:[/bold] {session['id']}\n"
+            f"[bold]제목:[/bold] {session.get('title', '')}\n"
+            f"[bold]생성:[/bold] {session['created_at']}\n"
+            f"[bold]메시지:[/bold] {len(messages)}개",
+            title="세션 복원",
+            border_style="cyan",
+            expand=False,
+        )
+    )
+
+    for msg in messages[-10:]:
+        role = msg.get("role", "?")
+        content = msg.get("content", "")[:200]
+        role_color = "blue" if role == "user" else "green"
+        console.print(f"[{role_color}]{role}:[/{role_color}] {content}")
+
+
+@session_grp.command("export")
+@click.argument("session_id")
+@click.option("--output", "-o", default=None, help="출력 파일 경로.")
+@click.option(
+    "--workspace",
+    "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트.",
+)
+def session_export_cmd(
+    session_id: str, output: str | None, workspace_dir: Path | None
+) -> None:
+    """세션을 마크다운으로 내보냅니다."""
+    from tools.session.manager import SessionManager
+
+    console = Console()
+    root = _get_root(workspace_dir)
+    mgr = SessionManager(root)
+
+    try:
+        md = mgr.export_markdown(session_id)
+    except ValueError as exc:
+        console.print(f"[red]{exc}[/red]")
+        return
+
+    if output:
+        Path(output).write_text(md, encoding="utf-8")
+        console.print(f"[green]✓[/green] 내보내기 완료: {output}")
+    else:
+        console.print(md)
 
 
 @cli.command("update")
@@ -990,6 +1171,167 @@ def _launch_chainlit_dashboard() -> None:
 def dashboard_cmd() -> None:
     """Chainlit 웹 대시보드를 실행합니다."""
     _launch_chainlit_dashboard()
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: Recipe commands
+# ---------------------------------------------------------------------------
+
+
+@cli.group("recipe")
+def recipe_grp() -> None:
+    """레시피 워크플로를 관리합니다 (run/list)."""
+
+
+@recipe_grp.command("run")
+@click.argument("name")
+@click.option(
+    "--workspace",
+    "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def recipe_run_cmd(name: str, workspace_dir: Path | None) -> None:
+    """레시피를 실행합니다."""
+    from tools.recipes.parser import parse_recipe
+    from tools.recipes.runner import RecipeRunner
+
+    console = Console()
+    root = _get_root(workspace_dir)
+
+    # Search for recipe in known dirs
+    search_dirs = [
+        Path.home() / ".locky" / "recipes",
+        root / ".locky" / "recipes",
+    ]
+
+    recipe_path = None
+    for d in search_dirs:
+        for ext in (".yaml", ".yml"):
+            candidate = d / f"{name}{ext}"
+            if candidate.exists():
+                recipe_path = candidate
+                break
+        if recipe_path:
+            break
+
+    if not recipe_path:
+        console.print(f"[red]레시피 '{name}'을 찾을 수 없습니다.[/red]")
+        console.print(f"[dim]검색 경로: {', '.join(str(d) for d in search_dirs)}[/dim]")
+        return
+
+    try:
+        recipe = parse_recipe(recipe_path)
+    except (ValueError, FileNotFoundError) as exc:
+        console.print(f"[red]레시피 로드 실패: {exc}[/red]")
+        return
+
+    console.print(f"[cyan]레시피 실행:[/cyan] {recipe.name}")
+    console.print(f"[dim]단계:[/dim] {' → '.join(s.action for s in recipe.steps)}")
+
+    result = RecipeRunner.run(recipe, root)
+
+    table = Table(
+        title=f"레시피 결과 — {result['executed']}/{result['total']} 단계",
+        show_header=True,
+    )
+    table.add_column("단계", style="cyan", width=12)
+    table.add_column("상태")
+    table.add_column("메시지")
+
+    for step_result in result.get("results", []):
+        step = step_result.get("step", "")
+        s = step_result.get("status", "unknown")
+        msg = step_result.get("message", step_result.get("output", ""))
+        msg = str(msg)[:80] if msg else ""
+        s_color = (
+            "green" if s in ("ok", "pass", "clean", "nothing_to_commit") else "red"
+        )
+        table.add_row(step, f"[{s_color}]{s}[/{s_color}]", msg)
+
+    console.print(table)
+
+    failed_at = result.get("failed_at")
+    if failed_at:
+        console.print(f"[red]'{failed_at}' 단계에서 중단되었습니다.[/red]")
+
+
+@recipe_grp.command("list")
+@click.option(
+    "--workspace",
+    "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def recipe_list_cmd(workspace_dir: Path | None) -> None:
+    """등록된 레시피 목록을 표시합니다."""
+    from tools.recipes.runner import RecipeRunner
+
+    console = Console()
+    root = _get_root(workspace_dir)
+
+    search_dirs = [
+        Path.home() / ".locky" / "recipes",
+        root / ".locky" / "recipes",
+    ]
+
+    recipes = RecipeRunner.list_recipes(*search_dirs)
+
+    if not recipes:
+        console.print("[dim]등록된 레시피가 없습니다.[/dim]")
+        console.print(f"[dim]레시피 경로: {', '.join(str(d) for d in search_dirs)}[/dim]")
+        return
+
+    table = Table(title=f"레시피 목록 — {len(recipes)}개", show_header=True)
+    table.add_column("이름", style="cyan")
+    table.add_column("버전")
+    table.add_column("설명")
+    table.add_column("단계")
+
+    for r in recipes:
+        steps_str = " → ".join(s.action for s in r.steps)
+        table.add_row(r.name, r.version, r.description[:40], steps_str)
+
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: MCP Server export
+# ---------------------------------------------------------------------------
+
+
+@cli.command("serve-mcp")
+def serve_mcp_cmd() -> None:
+    """Locky 기능을 MCP 서버로 실행합니다 (stdio)."""
+    from tools.mcp.server import run_server
+
+    run_server()
+
+
+# ---------------------------------------------------------------------------
+# Phase 3: TUI dashboard
+# ---------------------------------------------------------------------------
+
+
+@cli.command("tui")
+@click.option(
+    "--workspace",
+    "-w",
+    "workspace_dir",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True, path_type=Path),
+    default=None,
+    help="워크스페이스 루트(기본: 현재 디렉터리).",
+)
+def tui_cmd(workspace_dir: Path | None) -> None:
+    """Rich TUI 대시보드를 실행합니다."""
+    from ui.tui import run_tui
+
+    root = _get_root(workspace_dir)
+    run_tui(root)
 
 
 @cli.command("web")

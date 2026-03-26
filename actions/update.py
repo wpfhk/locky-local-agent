@@ -175,17 +175,27 @@ def _git_pull(repo_root: Path) -> tuple[bool, str]:
     """git pull origin main 실행. (changed, output) 반환."""
     try:
         result = subprocess.run(
-            ["git", "pull", "origin", "main"],
+            ["git", "pull", "--ff-only", "origin", "main"],
             cwd=repo_root,
             capture_output=True,
             text=True,
             timeout=60,
         )
         if result.returncode != 0:
-            raise RuntimeError(result.stderr.strip())
+            stderr = result.stderr.strip()
+            if "divergent branches" in stderr or "Need to specify how to reconcile" in stderr:
+                raise RuntimeError(
+                    "로컬 브랜치가 원격과 분기되었습니다. "
+                    "수동으로 해결하세요:\n"
+                    "  cd " + str(repo_root) + "\n"
+                    "  git pull --rebase origin main"
+                )
+            raise RuntimeError(f"git pull 실패: {stderr}")
         output = result.stdout.strip()
         changed = "Already up to date." not in output
         return changed, output
+    except RuntimeError:
+        raise
     except Exception as e:
         raise RuntimeError(f"git pull 실패: {e}") from e
 

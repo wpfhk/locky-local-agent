@@ -97,3 +97,4 @@ pytestdebug.log
 # 로컬 기획 문서 (커밋 제외)
 docs/CC_dev_system_development_plan.md
 docs/Locky_agent_dev_plan_requirement.md
+docs/.private/

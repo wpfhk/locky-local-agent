@@ -46,7 +46,7 @@ def test_edit_agent_dry_run(tmp_path):
     )
     with (
         patch("tools.ollama_guard.ensure_ollama", return_value=True),
-        patch("tools.ollama_client.OllamaClient.chat", return_value=diff_block),
+        patch("tools.ollama_client.OllamaClient.stream", return_value=[diff_block]),
     ):
         agent = EditAgent(session)
         result = agent.run("x를 2로 바꿔", file_path="code.py", dry_run=True)
@@ -61,7 +61,7 @@ def test_edit_agent_extract_diff_fallback(tmp_path):
     # diff 파싱 불가능한 응답
     with (
         patch("tools.ollama_guard.ensure_ollama", return_value=True),
-        patch("tools.ollama_client.OllamaClient.chat", return_value="그냥 텍스트 응답"),
+        patch("tools.ollama_client.OllamaClient.stream", return_value=["그냥 텍스트 응답"]),
     ):
         agent = EditAgent(session)
         result = agent.run("수정해줘", file_path="code.py", dry_run=True)

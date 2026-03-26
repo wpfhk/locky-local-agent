@@ -1,4 +1,4 @@
-"""actions/commit.py — git diff를 읽어 Ollama로 커밋 메시지를 생성하고 커밋합니다."""
+"""actions/commit.py — git diff를 읽어 LLM으로 커밋 메시지를 생성하고 커밋합니다."""
 
 from __future__ import annotations
 
@@ -59,38 +59,51 @@ def run(root: Path, dry_run: bool = False, push: bool = False) -> dict:
 
         # staged 파일이 없으면 modified 파일 자동 stage
         if not staged_files:
-            modified_files = [
-                line[3:].strip()
-                for line in status_lines
-                if line and not line.startswith("??")
-            ]
-            if not modified_files:
-                # untracked only
-                untracked = [
-                    line[3:].strip() for line in status_lines if line.startswith("??")
-                ]
-                if not untracked:
-                    return {
-                        "status": "nothing_to_commit",
-                        "message": "커밋할 변경 사항이 없습니다.",
-                        "committed_files": [],
-                    }
-                modified_files = untracked
-
-            add_result = subprocess.run(
-                ["git", "add"] + modified_files,
-                cwd=str(root),
-                capture_output=True,
-                text=True,
-                timeout=30,
+            has_tracked_changes = any(
+                line and not line.startswith("??") for line in status_lines
             )
+            has_untracked = any(line.startswith("??") for line in status_lines)
+
+            if not has_tracked_changes and not has_untracked:
+                return {
+                    "status": "nothing_to_commit",
+                    "message": "커밋할 변경 사항이 없습니다.",
+                    "committed_files": [],
+                }
+
+            # tracked 변경 파일(수정·삭제·rename 포함)은 git add -u로 일괄 스테이지
+            # untracked 파일만 있는 경우 git add .으로 처리
+            if has_tracked_changes:
+                add_result = subprocess.run(
+                    ["git", "add", "-u"],
+                    cwd=str(root),
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+            else:
+                add_result = subprocess.run(
+                    ["git", "add", "."],
+                    cwd=str(root),
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
             if add_result.returncode != 0:
                 return {
                     "status": "error",
                     "message": f"git add 실패: {add_result.stderr.strip()}",
                     "committed_files": [],
                 }
-            staged_files = modified_files
+            # git add 이후 실제 staged 파일 목록 재조회
+            staged_result2 = subprocess.run(
+                ["git", "diff", "--cached", "--name-only"],
+                cwd=str(root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            staged_files = [f for f in staged_result2.stdout.strip().splitlines() if f]
 
         # diff 내용 가져오기
         diff_result = subprocess.run(
@@ -166,19 +179,28 @@ def run(root: Path, dry_run: bool = False, push: bool = False) -> dict:
 
 
 def _generate_commit_message(diff_text: str, staged_files: List[str]) -> str:
-    """Ollama를 사용하여 Conventional Commits 형식의 커밋 메시지를 생성합니다."""
+    """LLM Registry를 사용하여 Conventional Commits 형식의 커밋 메시지를 생성합니다."""
     try:
-        import httpx
-
-        from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
-
-        # Ollama 서버 헬스체크 (미기동 시 자동 시작 시도)
+        # Ollama 프로바이더일 경우 기존 guard 실행 (하위 호환)
         try:
-            from tools.ollama_guard import ensure_ollama
+            from tools.llm.registry import LLMRegistry
 
-            ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
+            llm_client = LLMRegistry.get_client()
+
+            # Ollama 전용: 서버 헬스체크 + 자동 시작
+            if llm_client.provider_name == "ollama":
+                try:
+                    from tools.ollama_guard import ensure_ollama
+
+                    ensure_ollama(
+                        getattr(llm_client, "_base_url", "http://localhost:11434"),
+                        llm_client.model_name,
+                    )
+                except Exception:
+                    pass
         except Exception:
-            pass  # guard 실패 시 그대로 진행 (기존 오류 처리에 위임)
+            # LLM Registry 로드 실패 시 기존 Ollama 직접 호출로 fallback
+            llm_client = None
 
         # diff가 너무 길면 자름
         max_diff_len = 4000
@@ -200,29 +222,42 @@ def _generate_commit_message(diff_text: str, staged_files: List[str]) -> str:
             f"diff:\n{diff_text}"
         )
 
-        payload = {
-            "model": OLLAMA_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "stream": False,
-        }
-
-        with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
-            response = client.post(
-                f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat",
-                json=payload,
+        if llm_client is not None:
+            # LLM Registry를 통한 호출
+            response = llm_client.chat(
+                messages=[{"role": "user", "content": prompt}],
             )
-            response.raise_for_status()
-            data = response.json()
-            message = data["message"]["content"].strip()
-            # 첫 줄만 사용
+            message = response.content.strip()
             message = message.splitlines()[0].strip() if message else ""
             if message:
                 return message
+        else:
+            # Legacy fallback: 직접 Ollama 호출
+            import httpx
+
+            from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
+
+            payload = {
+                "model": OLLAMA_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+            }
+            with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
+                resp = client.post(
+                    f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat",
+                    json=payload,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                message = data["message"]["content"].strip()
+                message = message.splitlines()[0].strip() if message else ""
+                if message:
+                    return message
 
     except Exception:
         pass
 
-    # Ollama 실패 시 기본 메시지
+    # LLM 실패 시 기본 메시지
     files_part = staged_files[0] if staged_files else "files"
     if len(staged_files) > 1:
         files_part = f"{staged_files[0]} 외 {len(staged_files) - 1}개"
