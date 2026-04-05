@@ -1,35 +1,45 @@
 # Locky
 
-**Natural language to shell command. 100% local, 100% private.**
+**자연어를 셸 명령으로. 100% 로컬, 100% 프라이빗.**
 
-Locky converts natural language requests into executable shell commands using a local LLM (Gemma via Ollama). No cloud API, no telemetry, no data leaves your machine.
+Locky는 자연어 요청을 실행 가능한 셸 명령으로 변환하는 로컬 CLI 도구입니다.
+Ollama + Gemma 기반으로 동작하며, 클라우드 API 호출 없이 모든 데이터가 내 컴퓨터 안에서 처리됩니다.
+
+```
+locky [my-project]> 현재 디렉토리에서 100KB 넘는 파일 찾아줘
+╭─ Command ─────────────────────────────────╮
+│ find . -type f -size +100k               │
+╰───────────────────────────────────────────╯
+● Generating...  12 tok  38.4 t/s
+Execute? [y/N]
+```
 
 ---
 
-## Features
+## 주요 기능
 
-| Feature | Description |
-|---------|-------------|
-| **REPL** | Interactive session -- type naturally, get shell commands |
-| **One-shot** | `locky -c "..."` for scripting and CI pipelines |
-| **Autopilot** | `locky -a "..."` decomposes complex tasks into multi-step plans |
-| **Read-Think-Write** | Autopilot can read files, compute diffs, and edit with user approval |
-| **Session Memory** | Context-aware -- remembers your last 5 actions for smarter suggestions |
-| **Self-Correction** | Failed commands get AI-powered fix suggestions automatically |
-| **Real-time HUD** | Streaming token output with live speed meter (t/s) |
-| **OS-Aware** | Auto-detects Windows PowerShell vs macOS/Linux shell |
-| **Safe by Default** | Dangerous commands (`rm -rf /`, `DROP TABLE`) require explicit double confirmation |
+| 기능 | 설명 |
+|------|------|
+| **REPL** | 대화형 세션 — 자연어로 입력하면 셸 명령으로 변환 |
+| **원샷 모드** | `locky -c "..."` — 스크립트/CI에서 사용 가능 |
+| **Autopilot** | `locky -a "..."` — 복잡한 작업을 여러 단계로 분해하여 순차 실행 |
+| **Read-Think-Write** | Autopilot이 파일 읽기, diff 계산, 편집까지 사용자 승인 하에 수행 |
+| **세션 메모리** | 최근 5개 작업을 기억하여 문맥 기반 명령 생성 |
+| **자가 수정** | 명령 실패 시 AI가 에러를 분석하고 수정된 명령 제안 |
+| **스트리밍 HUD** | 토큰 생성 과정을 실시간 표시 (토큰 수 + 속도) |
+| **OS 자동 감지** | Windows PowerShell / macOS / Linux 셸 자동 판별 |
+| **안전 장치** | 위험한 명령(`rm -rf /`, `DROP TABLE`)은 이중 확인 필요 |
 
-## Prerequisites
+## 사전 준비
 
 - Python 3.10+
-- [Ollama](https://ollama.com/) running locally
+- [Ollama](https://ollama.com/) 로컬 실행
 
 ```bash
 ollama pull gemma3:12b
 ```
 
-## Install
+## 설치
 
 ```bash
 git clone https://github.com/dotoricode/locky.git
@@ -37,101 +47,164 @@ cd locky
 pip install -e .
 ```
 
-## Usage
+## 사용법
 
-### Interactive REPL
+### 대화형 REPL
 
 ```bash
-locky
+locky                    # 현재 디렉토리에서 시작
+locky -w /path/to/dir    # 특정 디렉토리 지정
 ```
 
 ```
-locky [D:\project]> 현재 디렉토리의 파일 목록을 보여줘
-╭─ Command to execute ──────────────────╮
-│ ls -la                                │
-╰───────────────────────────────────────╯
+locky [my-project]> git 로그 최근 5개만 보여줘
+╭─ Command ─────────────────────────────────╮
+│ git log --oneline -5                      │
+╰───────────────────────────────────────────╯
+● Generating...  8 tok  42.1 t/s
 Execute? [y/N] y
+
+╭─ Result -- ok (exit 0) ──────────────────╮
+│ a1b2c3d fix: handle null response        │
+│ d4e5f6g feat: add streaming support      │
+│ ...                                      │
+╰──────────────────────────────────────────╯
 ```
 
-### One-shot Mode
+### 원샷 모드
+
+스크립트나 파이프라인에서 사용할 수 있습니다. 종료 코드 `0`(성공) / `1`(실패)을 반환합니다.
 
 ```bash
-locky -c "find all Python files larger than 100KB"
-# -> find . -name "*.py" -size +100k
+# 명령만 출력
+locky -c "현재 브랜치 이름 알려줘"
+# -> git branch --show-current
 
-locky -c "compress the logs folder" --json
+# JSON 출력 (프로그래밍 연동용)
+locky -c "logs 폴더 압축해줘" --json
 # -> {"status": "ok", "command": "tar -czf logs.tar.gz logs/", "message": "..."}
+
+# 파이프라인에서 활용
+locky -c "디스크 사용량 보여줘" | bash
 ```
 
-Exit code: `0` on success, `1` on failure -- safe for scripting.
+### Autopilot 모드
 
-### Autopilot Mode
+복잡한 작업을 여러 단계로 분해하여 계획을 세우고, 각 단계를 사용자 승인 하에 실행합니다.
 
 ```bash
-locky -a "find all .py files, run ruff lint, and save errors to report.txt"
+locky -a "py 파일 린트 돌리고 에러를 report.txt에 저장해줘"
 ```
 
-Locky plans the task as multiple steps, shows you the plan, and executes each step with your approval:
-
 ```
-╭─ Autopilot Plan ──────────────────────────────────────╮
-│ Step │ Description          │ Command                  │
-│  1   │ Find Python files    │ find . -name "*.py"      │
-│  2   │ Run linter           │ ruff check .             │
-│  3   │ Save error report    │ ruff check . > report.txt│
-╰───────────────────────────────────────────────────────╯
-Execute this 3-step plan? [y/N]
+╭─ Autopilot Plan ─────────────────────────────────────────╮
+│ Step │ Action           │ Command                         │
+│  1   │ Run linter       │ ruff check .                    │
+│  2   │ Save report      │ ruff check . > report.txt 2>&1  │
+╰──────────────────────────────────────────────────────────╯
+Execute this 2-step plan? [y/N]
 ```
 
-### REPL Commands
+Autopilot은 `read_file`(파일 읽기)과 `edit_file`(파일 편집) 특수 도구도 지원합니다.
+편집 시 자동으로 백업 파일을 생성하고, diff를 미리 보여준 뒤 승인을 받습니다.
 
-| Command | Description |
-|---------|-------------|
-| `/help` | Show help |
-| `/clear` | Clear screen |
-| `/reset` | Clear session memory |
-| `/autopilot <task>` | Run multi-step autopilot |
-| `/exit` | Quit |
+REPL 안에서도 `/autopilot` 명령으로 사용할 수 있습니다:
 
-## Configuration
+```
+locky [my-project]> /autopilot 테스트 파일 생성하고 pytest 실행해줘
+```
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OLLAMA_MODEL` | `gemma3:12b` | Ollama model tag |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server URL |
-| `OLLAMA_TIMEOUT` | `300` | Request timeout (seconds) |
+### 자가 수정 (Self-Fix)
 
-## Architecture
+명령이 실패하면 Locky가 에러를 분석하고 수정된 명령을 제안합니다.
+
+```
+locky [my-project]> 파이썬 버전 확인해줘
+╭─ Command ─────────────────────╮
+│ python --version              │
+╰───────────────────────────────╯
+Execute? [y/N] y
+
+╭─ Result -- error (exit 1) ───────────────────────╮
+│ 'python' is not recognized as an internal or     │
+│ external command                                 │
+╰──────────────────────────────────────────────────╯
+Press f for fix suggestion, or Enter to skip
+[f/Enter] f
+
+╭─ Suggested fix ──────────────╮
+│ python3 --version            │
+╰──────────────────────────────╯
+Execute fix? [y/N] y
+
+╭─ Fix result -- ok (exit 0) ──╮
+│ Python 3.12.4                │
+╰──────────────────────────────╯
+```
+
+### REPL 명령어
+
+| 명령 | 설명 |
+|------|------|
+| `/help` | 도움말 표시 |
+| `/clear` | 화면 지우기 |
+| `/reset` | 세션 메모리 초기화 |
+| `/autopilot <작업>` | 다단계 Autopilot 실행 |
+| `/exit` | 종료 (또는 `exit`, `quit`) |
+
+### CLI 옵션
+
+```
+locky [OPTIONS]
+
+Options:
+  -w, --workspace PATH    작업 디렉토리 지정 (기본: 현재 디렉토리)
+  -c, --command TEXT      원샷 모드: 변환 결과 출력 후 종료
+  --json                  JSON 형식 출력 (-c와 함께 사용)
+  -a, --autopilot TEXT    Autopilot 모드: 다단계 작업 실행
+  -h, --help              도움말
+  --version               버전 정보
+```
+
+## 환경 변수
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `OLLAMA_MODEL` | `gemma3:12b` | Ollama 모델 태그 |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama 서버 URL |
+| `OLLAMA_TIMEOUT` | `300` | 요청 타임아웃 (초) |
+
+## 구조
 
 ```
 locky_cli/
-  main.py              CLI entry (REPL + one-shot + autopilot)
-  repl.py              Interactive REPL with streaming HUD
-  autopilot.py         Multi-step plan execution engine
+  main.py              CLI 진입점 (REPL + 원샷 + Autopilot)
+  repl.py              대화형 REPL (스트리밍 HUD + 자가 수정)
+  autopilot.py         Autopilot 실행 엔진 (Read-Think-Write)
 
 actions/
-  shell_command.py     Core: natural language -> shell command (Ollama)
+  shell_command.py     핵심: 자연어 → 셸 명령 변환 (+ 자가 수정)
 
 tools/
-  ollama_client.py     Ollama /api/chat client (sync + streaming)
-  ollama_guard.py      Ollama health check + auto-start
-  planner.py           Task decomposition into step-by-step plans
-  editor.py            Safe file editing with backup + diff preview
-  session_manager.py   JSON-based session memory
-  indexer.py           AST-based code map generator
+  ollama_client.py     Ollama /api/chat 클라이언트 (동기 + 스트리밍)
+  ollama_guard.py      Ollama 헬스체크 + 자동 시작
+  planner.py           다단계 작업 계획 생성기
+  editor.py            안전한 파일 편집 (백업 + diff 미리보기)
+  session_manager.py   JSON 기반 세션 메모리
+  indexer.py           AST 기반 코드 맵 생성기
 
-config.py              Environment variables (3 total)
+config.py              환경 변수 3개
 ```
 
-## Development
+## 개발
 
 ```bash
 pip install -e ".[dev]"
-python -m pytest tests/ -v      # 94 tests
-ruff check .                    # lint
-ruff format .                   # format
+python -m pytest tests/ -v      # 테스트
+ruff check .                    # 린트
+ruff format .                   # 포맷
 ```
 
-## License
+## 라이선스
 
 MIT

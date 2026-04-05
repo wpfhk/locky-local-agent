@@ -62,7 +62,7 @@ Versioning: [Semantic Versioning](https://semver.org/)
 
 ### Added
 - Autopilot mode: `locky -a "complex task"` for multi-step autonomous execution
-- Task planner (`tools/planner.py`): Gemma 4 decomposes requests into ≤7 shell command steps
+- Task planner (`tools/planner.py`): Gemma 3 decomposes requests into ≤7 shell command steps
 - REPL command `/autopilot <task>` for inline multi-step planning
 - Dangerous command detection: `rm -rf /`, `DROP TABLE`, etc. require explicit `yes` confirmation
 - Per-step approval: `[y] Execute / [s] Skip / [q] Quit` for each plan step
@@ -151,4 +151,4 @@ Versioning: [Semantic Versioning](https://semver.org/)
 
 ## [0.0.1] - 2026-04-04
 
-Project restarted from scratch for Gemma 4 integration.
+Project restarted from scratch for Gemma 3 integration.
