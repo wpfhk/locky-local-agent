@@ -1,18 +1,23 @@
-"""actions/shell_command.py -- 자연어 요청을 셸 명령으로 변환합니다. (v4.0.0)"""
+"""actions/shell_command.py -- 자연어 요청을 셸 명령으로 변환합니다."""
 
 from __future__ import annotations
 
+import platform
 import re
+import time
 from pathlib import Path
 
-# 영어 시스템 프롬프트: Few-shot 예시 포함, 코드 생성 명시 거부
-_SYSTEM_PROMPT = """\
-You are a shell command generator for macOS/Linux.
+_IS_WINDOWS = platform.system() == "Windows"
+_SHELL_NAME = "Windows PowerShell" if _IS_WINDOWS else "macOS/Linux"
+
+# OS별 시스템 프롬프트: Few-shot 예시 포함, 코드 생성 명시 거부
+_SYSTEM_PROMPT = f"""\
+You are a shell command generator for {"Windows PowerShell" if _IS_WINDOWS else "macOS/Linux"}.
 Output ONLY a single executable shell command.
 No explanations, no markdown, no code blocks. Just the raw command.
 
 RULES:
-1. Output must be a valid shell command (bash/zsh/sh).
+1. Output must be a valid {"PowerShell command" if _IS_WINDOWS else "shell command (bash/zsh/sh)"}.
 2. NEVER output programming language code (Python, JavaScript, Go, Rust, etc.).
 3. If the user asks to "write code", "implement a program", "create a script", \
 or any code-generation task, output exactly: echo 'Use a code editor for programming tasks'
@@ -99,6 +104,34 @@ def _scan_directory(root: Path) -> str:
         return "(unknown)"
 
 
+_CODE_MAP_TTL = 300  # 5분
+
+
+def _get_code_map(root: Path) -> str:
+    """코드 맵을 로드합니다. 없거나 오래되면 자동 생성."""
+    map_path = root / ".omc" / "repo_map.md"
+
+    try:
+        needs_update = not map_path.is_file() or (
+            time.time() - map_path.stat().st_mtime > _CODE_MAP_TTL
+        )
+        if needs_update:
+            from tools.indexer import save_repo_map
+
+            save_repo_map(root)
+    except Exception:
+        pass
+
+    if not map_path.is_file():
+        return ""
+
+    try:
+        content = map_path.read_text(encoding="utf-8")
+        return content[:4000] if len(content) > 4000 else content
+    except Exception:
+        return ""
+
+
 def _extract_command(raw: str) -> str:
     """Ollama 응답에서 실제 셸 명령만 추출합니다."""
     block_match = re.search(r"```(?:\w+)?\s*\n?(.*?)\n?```", raw, re.DOTALL)
@@ -122,8 +155,8 @@ def _is_valid_command(cmd: str) -> bool:
     # 한글 포함 = 명령이 아닌 자연어 응답
     if re.search(r"[가-힣ㄱ-ㅎㅏ-ㅣ]", cmd):
         return False
-    # 알파벳·경로·변수로 시작해야 함
-    if not re.match(r"^[a-zA-Z./~$_(]", cmd):
+    # 알파벳·숫자·경로·변수로 시작해야 함
+    if not re.match(r"^[a-zA-Z0-9./~$_(]", cmd):
         return False
     # 프로그래밍 언어 코드 감지
     cmd_lower = cmd.lower()
@@ -133,13 +166,15 @@ def _is_valid_command(cmd: str) -> bool:
     return True
 
 
-def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> dict:
+def run(
+    root: Path, request: str = "", history: str = "", on_token=None, **opts
+) -> dict:
     """자연어 요청을 Ollama를 통해 셸 명령으로 변환합니다.
 
     Args:
         root: 작업 디렉토리 (컨텍스트 및 cwd로 사용)
         request: 자연어 요청
-        auto_confirm: 미사용 (repl.py에서 확인 처리)
+        history: 세션 이력 컨텍스트 (format_context() 결과)
 
     Returns:
         {"status": "ok"|"error", "command": str, "message": str}
@@ -153,45 +188,53 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
             "message": "요청 내용이 비어있습니다.",
         }
 
-    # 디렉토리 컨텍스트 포함 -> Ollama가 파일 존재를 인식
+    # 디렉토리 + 코드 맵 + 세션 이력 컨텍스트 포함
     dir_files = _scan_directory(root)
-    user_message = (
-        f"Working directory: {root}\n"
-        f"Files in directory: {dir_files}\n"
-        f"Request: {request}"
-    )
+    code_map = _get_code_map(root)
+
+    parts = [
+        f"Working directory: {root}",
+        f"Files in directory: {dir_files}",
+    ]
+    if code_map:
+        parts.append(f"\nProject code map:\n{code_map}")
+    if history:
+        parts.append(f"\n{history}")
+    parts.append(f"\nRequest: {request}")
+    user_message = "\n".join(parts)
 
     try:
-        import httpx
-
-        from config import OLLAMA_BASE_URL, OLLAMA_MODEL, OLLAMA_TIMEOUT
+        from tools.ollama_client import OllamaClient
 
         try:
+            from config import OLLAMA_BASE_URL, OLLAMA_MODEL
+
             from tools.ollama_guard import ensure_ollama
 
             ensure_ollama(OLLAMA_BASE_URL, OLLAMA_MODEL)
         except Exception:
             pass
 
-        payload = {
-            "model": OLLAMA_MODEL,
-            "messages": [{"role": "user", "content": user_message}],
-            "system": _SYSTEM_PROMPT,
-            "stream": False,
-            "options": {
-                "temperature": 0,
-                "num_predict": 80,
-                "top_k": 1,
-            },
-        }
+        client = OllamaClient()
+        options_dict = {"temperature": 0, "num_predict": 150, "top_k": 1}
 
-        with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
-            resp = client.post(
-                f"{OLLAMA_BASE_URL.rstrip('/')}/api/chat",
-                json=payload,
-            )
-            resp.raise_for_status()
-            raw_content = resp.json()["message"]["content"].strip()
+        if on_token is not None:
+            # Streaming mode
+            raw_parts: list[str] = []
+            for token in client.stream(
+                messages=[{"role": "user", "content": user_message}],
+                system=_SYSTEM_PROMPT,
+                options=options_dict,
+            ):
+                raw_parts.append(token)
+                on_token(token)
+            raw_content = "".join(raw_parts).strip()
+        else:
+            raw_content = client.chat(
+                messages=[{"role": "user", "content": user_message}],
+                system=_SYSTEM_PROMPT,
+                options=options_dict,
+            ).strip()
 
         command = _extract_command(raw_content)
 
@@ -210,3 +253,98 @@ def run(root: Path, request: str = "", auto_confirm: bool = False, **opts) -> di
 
     except Exception as exc:
         return {"status": "error", "command": "", "message": f"명령 생성 실패: {exc}"}
+
+
+# -- 자가 수정 프롬프트 ---------------------------------------------------------
+
+_FIX_SYSTEM_PROMPT = f"""\
+You are a shell command debugger for {_SHELL_NAME}.
+A command failed. Analyze the error and output ONLY a single corrected shell command.
+No explanations, no markdown, no code blocks. Just the fixed raw command.
+
+FAILURE PATTERNS:
+- Typo in command name (e.g. "gitt") -> correct the spelling (e.g. "git")
+- Permission denied -> prepend sudo (Linux/macOS) or suggest Run as Admin
+- No such file or directory -> fix the path using the file listing provided
+- Command not installed -> output the install command (e.g. apt install, brew install)
+- Wrong flags or syntax -> fix the flags based on the tool's usage
+
+If truly unrecoverable, output: echo 'Cannot fix: <brief reason>'
+"""
+
+
+def run_fix(
+    root: Path,
+    request: str,
+    failed_command: str,
+    error_msg: str,
+    on_token=None,
+) -> dict:
+    """실패한 명령을 분석하고 교정된 명령을 제안합니다.
+
+    Args:
+        root: 작업 디렉토리
+        request: 원래 자연어 요청
+        failed_command: 실패한 셸 명령
+        error_msg: stderr 출력
+
+    Returns:
+        {"status": "ok"|"error", "command": str, "message": str}
+    """
+    root = Path(root).resolve()
+
+    dir_files = _scan_directory(root)
+    code_map = _get_code_map(root)
+
+    parts = [
+        f"Working directory: {root}",
+        f"Files: {dir_files}",
+    ]
+    if code_map:
+        parts.append(f"\nProject code map:\n{code_map}")
+    parts.append(f"\nOriginal request: {request}")
+    parts.append(f"Failed command: {failed_command}")
+    parts.append(f"Error output:\n{error_msg[:500]}")
+    parts.append("\nProvide the corrected command:")
+    user_message = "\n".join(parts)
+
+    try:
+        from tools.ollama_client import OllamaClient
+
+        client = OllamaClient()
+        options_dict = {"temperature": 0, "num_predict": 150, "top_k": 1}
+
+        if on_token is not None:
+            raw_parts: list[str] = []
+            for token in client.stream(
+                messages=[{"role": "user", "content": user_message}],
+                system=_FIX_SYSTEM_PROMPT,
+                options=options_dict,
+            ):
+                raw_parts.append(token)
+                on_token(token)
+            raw_content = "".join(raw_parts).strip()
+        else:
+            raw_content = client.chat(
+                messages=[{"role": "user", "content": user_message}],
+                system=_FIX_SYSTEM_PROMPT,
+                options=options_dict,
+            ).strip()
+
+        command = _extract_command(raw_content)
+
+        if not _is_valid_command(command):
+            return {
+                "status": "error",
+                "command": "",
+                "message": f"교정 실패.\nLLM 응답: {raw_content[:120]}",
+            }
+
+        return {
+            "status": "ok",
+            "command": command,
+            "message": f"교정된 명령: {command}",
+        }
+
+    except Exception as exc:
+        return {"status": "error", "command": "", "message": f"교정 실패: {exc}"}
