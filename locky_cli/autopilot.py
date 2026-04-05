@@ -96,6 +96,8 @@ def _handle_read_file(
         return False, "", "read_file: 'path' field missing"
 
     target = (workspace / rel_path).resolve()
+    if not target.is_relative_to(workspace):
+        return False, "", f"read_file: path escapes workspace: {rel_path}"
     content = read_file_range(target)
     console.print(
         Panel(
@@ -127,6 +129,8 @@ def _handle_edit_file(
         return False, "", "edit_file: 'old' field missing"
 
     target = (workspace / rel_path).resolve()
+    if not target.is_relative_to(workspace):
+        return False, "", f"edit_file: path escapes workspace: {rel_path}"
     if not target.is_file():
         return False, "", f"edit_file: file not found: {rel_path}"
 
@@ -134,10 +138,13 @@ def _handle_edit_file(
     import shutil as _shutil
     import tempfile
 
-    tmp = Path(tempfile.mktemp(suffix=".tmp"))
-    _shutil.copy2(target, tmp)
-    ok_dry, diff = replace_in_file(tmp, old_text, new_text, backup=False)
-    tmp.unlink(missing_ok=True)
+    with tempfile.NamedTemporaryFile(suffix=".tmp", delete=False) as f:
+        tmp = Path(f.name)
+    try:
+        _shutil.copy2(target, tmp)
+        ok_dry, diff = replace_in_file(tmp, old_text, new_text, backup=False)
+    finally:
+        tmp.unlink(missing_ok=True)
 
     if not ok_dry:
         return False, "", f"edit_file: pattern not found in {rel_path}"

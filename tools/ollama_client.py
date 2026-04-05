@@ -124,7 +124,10 @@ class OllamaClient:
                 resp.raise_for_status()
                 for line in resp.iter_lines():
                     if line:
-                        data = json.loads(line)
+                        try:
+                            data = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
                         if token := data.get("message", {}).get("content", ""):
                             yield token
                         if data.get("done"):

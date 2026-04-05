@@ -46,6 +46,11 @@ _DANGEROUS_PATTERNS = [
     r"DROP\s+DATABASE",
     r"format\s+c:",  # Windows format
     r"del\s+/[sq]\s+[a-zA-Z]:[/\\]",  # Windows del /s C:\
+    r"curl\s+.*\|\s*(?:ba)?sh",  # curl | bash (remote code exec)
+    r"wget\s+.*\|\s*(?:ba)?sh",  # wget | bash
+    r"curl\s+.*-[dX].*@",  # curl data exfiltration (POST file contents)
+    r"powershell\s+.*-enc",  # powershell encoded command
+    r"net\s+user\s+\w+\s+.*/add",  # Windows user creation
 ]
 
 _DANGEROUS_RE = [re.compile(p, re.IGNORECASE) for p in _DANGEROUS_PATTERNS]
