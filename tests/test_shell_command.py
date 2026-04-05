@@ -1,14 +1,12 @@
-"""actions/shell_command.py 단위 테스트 (v4.0.0)."""
+"""actions/shell_command.py 단위 테스트."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
-from actions.shell_command import (_extract_command, _is_valid_command,
-                                   _scan_directory)
+from actions.shell_command import _extract_command, _is_valid_command, _scan_directory
 
 # -- _extract_command -----------------------------------------------------------
 
@@ -71,11 +69,45 @@ def test_invalid_empty_string():
     assert _is_valid_command("") is False
 
 
-def test_invalid_starts_with_number():
-    assert _is_valid_command("1password login") is False
+def test_invalid_starts_with_special_char():
+    assert _is_valid_command("@invalid") is False
 
 
-# -- Code keyword rejection (v4 bug fix) ----------------------------------------
+# -- Numeric-start CLI tools ---------------------------------------------------
+
+
+def test_valid_7z_command():
+    assert _is_valid_command("7z x archive.zip") is True
+
+
+def test_valid_2to3_command():
+    assert _is_valid_command("2to3 script.py") is True
+
+
+def test_valid_1password_command():
+    assert _is_valid_command("1password login") is True
+
+
+# -- Pipe, redirection, chaining -----------------------------------------------
+
+
+def test_valid_pipe_command():
+    assert _is_valid_command('ls -la | grep ".py"') is True
+
+
+def test_valid_redirection_command():
+    assert _is_valid_command('echo "hello" > output.txt') is True
+
+
+def test_valid_chained_command():
+    assert _is_valid_command("cat file.txt && rm file.txt") is True
+
+
+def test_valid_complex_pipe():
+    assert _is_valid_command('find . -name "*.log" | xargs rm') is True
+
+
+# -- Code keyword rejection ----------------------------------------------------
 
 
 def test_invalid_import_statement():
@@ -168,16 +200,10 @@ def test_run_empty_request(tmp_path: Path):
 def test_run_returns_ok_with_mock(tmp_path: Path):
     from actions.shell_command import run
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = {"message": {"content": "adb install app.aab"}}
-    mock_response.raise_for_status = MagicMock()
-
-    with patch("httpx.Client") as mock_client_cls:
+    with patch("tools.ollama_client.OllamaClient") as mock_cls:
         mock_client = MagicMock()
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-        mock_client.post.return_value = mock_response
-        mock_client_cls.return_value = mock_client
+        mock_client.chat.return_value = "adb install app.aab"
+        mock_cls.return_value = mock_client
 
         result = run(tmp_path, request="aab 파일 설치해줘")
 
@@ -188,18 +214,10 @@ def test_run_returns_ok_with_mock(tmp_path: Path):
 def test_run_rejects_korean_response(tmp_path: Path):
     from actions.shell_command import run
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "message": {"content": "죄송합니다, 어떤 명령인지 모르겠습니다."}
-    }
-    mock_response.raise_for_status = MagicMock()
-
-    with patch("httpx.Client") as mock_client_cls:
+    with patch("tools.ollama_client.OllamaClient") as mock_cls:
         mock_client = MagicMock()
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-        mock_client.post.return_value = mock_response
-        mock_client_cls.return_value = mock_client
+        mock_client.chat.return_value = "죄송합니다, 어떤 명령인지 모르겠습니다."
+        mock_cls.return_value = mock_client
 
         result = run(tmp_path, request="뭔가 해줘")
 
@@ -208,21 +226,13 @@ def test_run_rejects_korean_response(tmp_path: Path):
 
 
 def test_run_rejects_python_code_response(tmp_path: Path):
-    """v4 핵심 버그 수정: Ollama가 Python 코드를 반환하면 거부해야 한다."""
+    """Ollama가 Python 코드를 반환하면 거부해야 한다."""
     from actions.shell_command import run
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "message": {"content": "import os\nos.makedirs('/temp', exist_ok=True)"}
-    }
-    mock_response.raise_for_status = MagicMock()
-
-    with patch("httpx.Client") as mock_client_cls:
+    with patch("tools.ollama_client.OllamaClient") as mock_cls:
         mock_client = MagicMock()
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-        mock_client.post.return_value = mock_response
-        mock_client_cls.return_value = mock_client
+        mock_client.chat.return_value = "import os\nos.makedirs('/temp', exist_ok=True)"
+        mock_cls.return_value = mock_client
 
         result = run(tmp_path, request="파이썬 프로그램 만들어줘")
 
@@ -234,18 +244,10 @@ def test_run_accepts_echo_refusal(tmp_path: Path):
     """코드 생성 요청에 echo 거부 메시지를 반환하면 유효한 명령으로 인정."""
     from actions.shell_command import run
 
-    mock_response = MagicMock()
-    mock_response.json.return_value = {
-        "message": {"content": "echo 'Use a code editor for programming tasks'"}
-    }
-    mock_response.raise_for_status = MagicMock()
-
-    with patch("httpx.Client") as mock_client_cls:
+    with patch("tools.ollama_client.OllamaClient") as mock_cls:
         mock_client = MagicMock()
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-        mock_client.post.return_value = mock_response
-        mock_client_cls.return_value = mock_client
+        mock_client.chat.return_value = "echo 'Use a code editor for programming tasks'"
+        mock_cls.return_value = mock_client
 
         result = run(tmp_path, request="파이썬 프로그램 만들어줘")
 
@@ -257,12 +259,10 @@ def test_run_handles_connection_error(tmp_path: Path):
     """Ollama 연결 실패 시 에러를 반환해야 한다."""
     from actions.shell_command import run
 
-    with patch("httpx.Client") as mock_client_cls:
+    with patch("tools.ollama_client.OllamaClient") as mock_cls:
         mock_client = MagicMock()
-        mock_client.__enter__ = MagicMock(return_value=mock_client)
-        mock_client.__exit__ = MagicMock(return_value=False)
-        mock_client.post.side_effect = Exception("Connection refused")
-        mock_client_cls.return_value = mock_client
+        mock_client.chat.side_effect = Exception("Connection refused")
+        mock_cls.return_value = mock_client
 
         result = run(tmp_path, request="ls 해줘")
 
