@@ -142,6 +142,7 @@ def generate_plan(workspace: Path, request: str, on_token=None) -> list[dict]:
             messages=[{"role": "user", "content": user_message}],
             system=_PLANNER_SYSTEM_PROMPT,
             options=options_dict,
+            think=False,
         ):
             raw_parts.append(token)
             on_token(token)
@@ -151,6 +152,7 @@ def generate_plan(workspace: Path, request: str, on_token=None) -> list[dict]:
             messages=[{"role": "user", "content": user_message}],
             system=_PLANNER_SYSTEM_PROMPT,
             options=options_dict,
+            think=False,
         ).strip()
 
     return parse_plan(raw)
@@ -191,6 +193,7 @@ def evaluate_progress(
             messages=[{"role": "user", "content": user_message}],
             system=_EVAL_SYSTEM_PROMPT,
             options={"temperature": 0, "num_predict": 100, "top_k": 1},
+            think=False,
         ).strip()
 
         match = re.search(r"\{.*\}", raw, re.DOTALL)

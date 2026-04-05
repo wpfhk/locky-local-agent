@@ -39,6 +39,9 @@ Output: git log --oneline -20
 
 User: Docker 컨테이너 목록 보여줘
 Output: docker ps -a
+
+User: 현재 브랜치 이름 알려줘
+Output: git rev-parse --abbrev-ref HEAD
 """
 
 # 관련성 높은 확장자 (우선 표시)
@@ -225,6 +228,7 @@ def run(
                 messages=[{"role": "user", "content": user_message}],
                 system=_SYSTEM_PROMPT,
                 options=options_dict,
+                think=False,
             ):
                 raw_parts.append(token)
                 on_token(token)
@@ -234,6 +238,7 @@ def run(
                 messages=[{"role": "user", "content": user_message}],
                 system=_SYSTEM_PROMPT,
                 options=options_dict,
+                think=False,
             ).strip()
 
         command = _extract_command(raw_content)
@@ -320,6 +325,7 @@ def run_fix(
                 messages=[{"role": "user", "content": user_message}],
                 system=_FIX_SYSTEM_PROMPT,
                 options=options_dict,
+                think=False,
             ):
                 raw_parts.append(token)
                 on_token(token)
@@ -329,6 +335,7 @@ def run_fix(
                 messages=[{"role": "user", "content": user_message}],
                 system=_FIX_SYSTEM_PROMPT,
                 options=options_dict,
+                think=False,
             ).strip()
 
         command = _extract_command(raw_content)
