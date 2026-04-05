@@ -18,13 +18,16 @@ class OllamaClient:
         self.model = model
         self.timeout = timeout
 
-    def chat(self, messages: list, system: str = "") -> str:
+    def chat(
+        self, messages: list, system: str = "", options: dict | None = None
+    ) -> str:
         """
         동기 채팅 요청.
 
         Args:
             messages: [{"role": "user"|"assistant", "content": "..."}] 형식의 메시지 목록
             system: 시스템 프롬프트 (선택)
+            options: Ollama 옵션 (temperature, num_predict, top_k 등)
 
         Returns:
             모델 응답 문자열
@@ -36,6 +39,8 @@ class OllamaClient:
         }
         if system:
             payload["system"] = system
+        if options:
+            payload["options"] = options
 
         with httpx.Client(timeout=self.timeout) as client:
             response = client.post(
@@ -89,10 +94,17 @@ class OllamaClient:
                     if chunk.get("done", False):
                         break
 
-    def stream(self, messages: list, system: str = "", timeout: int | None = None):
+    def stream(
+        self,
+        messages: list,
+        system: str = "",
+        options: dict | None = None,
+        timeout: int | None = None,
+    ):
         """스트리밍 채팅. 토큰별 동기 제너레이터.
 
         Args:
+            options: Ollama 옵션 (temperature, num_predict, top_k 등)
             timeout: 청크 간 타임아웃(초). None이면 무제한 대기 (CPU 추론 시 권장).
                      기본값은 self.timeout 사용.
         """
@@ -101,6 +113,8 @@ class OllamaClient:
         payload = {"model": self.model, "messages": messages, "stream": True}
         if system:
             payload["system"] = system
+        if options:
+            payload["options"] = options
 
         effective_timeout = timeout if timeout is not None else self.timeout
         with httpx.Client(timeout=effective_timeout) as client:
