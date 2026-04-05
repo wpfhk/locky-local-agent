@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "afd": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@dotoricode/afd",
+        "start",
+        "--mcp"
+      ]
+    }
+  }
+}

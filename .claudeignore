@@ -1,0 +1,6 @@
+# Autonomous Flow Daemon defaults
+node_modules/
+dist/
+.afd/
+*.log
+.env
