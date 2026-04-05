@@ -19,7 +19,8 @@ class OllamaClient:
         self.timeout = timeout
 
     def chat(
-        self, messages: list, system: str = "", options: dict | None = None
+        self, messages: list, system: str = "", options: dict | None = None,
+        think: bool | None = None,
     ) -> str:
         """
         동기 채팅 요청.
@@ -28,19 +29,23 @@ class OllamaClient:
             messages: [{"role": "user"|"assistant", "content": "..."}] 형식의 메시지 목록
             system: 시스템 프롬프트 (선택)
             options: Ollama 옵션 (temperature, num_predict, top_k 등)
+            think: thinking 모드 제어 (None=모델 기본값, False=비활성화)
 
         Returns:
             모델 응답 문자열
         """
+        msgs = list(messages)
+        if system:
+            msgs.insert(0, {"role": "system", "content": system})
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": msgs,
             "stream": False,
         }
-        if system:
-            payload["system"] = system
         if options:
             payload["options"] = options
+        if think is not None:
+            payload["think"] = think
 
         with httpx.Client(timeout=self.timeout) as client:
             response = client.post(
@@ -64,13 +69,14 @@ class OllamaClient:
         Yields:
             스트리밍 응답 토큰 문자열
         """
+        msgs = list(messages)
+        if system:
+            msgs.insert(0, {"role": "system", "content": system})
         payload = {
             "model": self.model,
-            "messages": messages,
+            "messages": msgs,
             "stream": True,
         }
-        if system:
-            payload["system"] = system
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             async with client.stream(
@@ -100,6 +106,7 @@ class OllamaClient:
         system: str = "",
         options: dict | None = None,
         timeout: int | None = None,
+        think: bool | None = None,
     ):
         """스트리밍 채팅. 토큰별 동기 제너레이터.
 
@@ -107,14 +114,18 @@ class OllamaClient:
             options: Ollama 옵션 (temperature, num_predict, top_k 등)
             timeout: 청크 간 타임아웃(초). None이면 무제한 대기 (CPU 추론 시 권장).
                      기본값은 self.timeout 사용.
+            think: thinking 모드 제어 (None=모델 기본값, False=비활성화)
         """
         import json
 
-        payload = {"model": self.model, "messages": messages, "stream": True}
+        msgs = list(messages)
         if system:
-            payload["system"] = system
+            msgs.insert(0, {"role": "system", "content": system})
+        payload = {"model": self.model, "messages": msgs, "stream": True}
         if options:
             payload["options"] = options
+        if think is not None:
+            payload["think"] = think
 
         effective_timeout = timeout if timeout is not None else self.timeout
         with httpx.Client(timeout=effective_timeout) as client:
